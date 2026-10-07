@@ -96,6 +96,8 @@ Q_SIGNALS:
   void peerFingerprint(const QString &fingerprint);
   void missingKeyboardLayouts(const QString &layouts);
   void filesReceived(const QString &details);
+  void dragProbeRequested(int x, int y);
+  void dragProbeEnded();
   void fileTransferFailed(const QString &message);
 
 private Q_SLOTS:

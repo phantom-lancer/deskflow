@@ -662,6 +662,13 @@ void CoreProcess::onCoreIpcMessageReceived(const QString &command, const QString
     Q_EMIT peerFingerprint(args);
   } else if (command == "missingKeyboardLayouts") {
     Q_EMIT missingKeyboardLayouts(args);
+  } else if (command == "dragProbe") {
+    const auto position = args.split(QLatin1Char(','));
+    if (position.size() == 2) {
+      Q_EMIT dragProbeRequested(position.at(0).toInt(), position.at(1).toInt());
+    }
+  } else if (command == "dragProbeEnd") {
+    Q_EMIT dragProbeEnded();
   } else if (command == "filesReceived") {
     Q_EMIT filesReceived(args);
   } else if (command == "fileTransferFailed") {
