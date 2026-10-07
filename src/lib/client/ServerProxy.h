@@ -80,22 +80,6 @@ protected:
   //! Reply to the server's info query with this computer's info
   virtual void queryInfo();
 
-  //! @name notifications for subclasses, after the client handled the message
-  //@{
-  virtual void onMouseMoved(int32_t x, int32_t y)
-  {
-    // only needed by protocols that react to the cursor
-  }
-  virtual void onMouseButton(ButtonID id, bool pressed)
-  {
-    // only needed by protocols that react to buttons
-  }
-  virtual void onLeft()
-  {
-    // only needed by protocols that react to leaving the computer
-  }
-  //@}
-
 private:
   // if compressing mouse motion then send the last motion now
   void flushCompressedMouse();
