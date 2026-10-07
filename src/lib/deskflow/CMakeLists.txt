@@ -45,16 +45,12 @@ add_library(${lib_name} STATIC ${PLATFORM_CODE}
   DisplayException.cpp
   DisplayException.h
   DisplayInvalidException.h
-  DragProbe.cpp
-  DragProbe.h
   FileTransfer.cpp
   FileTransfer.h
   FileTransferLocations.cpp
   FileTransferLocations.h
   FileTransferManager.cpp
   FileTransferManager.h
-  FileTransferNotify.cpp
-  FileTransferNotify.h
   IApp.h
   IClient.h
   IClipboard.cpp
@@ -109,6 +105,11 @@ target_link_libraries(${lib_name}
 
 if(UNIX AND NOT APPLE)
   target_link_libraries(${lib_name} PRIVATE server)
+endif()
+
+if(WIN32)
+  # locate the signed-in user's downloads when the core runs as SYSTEM
+  target_link_libraries(${lib_name} PRIVATE wtsapi32 shell32 ole32)
 endif()
 
 if(WIN32)

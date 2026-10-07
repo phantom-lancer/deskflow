@@ -11,11 +11,8 @@
 #include "server/BaseClientProxy.h"
 #include "server/FileTransferRouter.h"
 
-#include <QFile>
-#include <QTemporaryDir>
 #include <QTest>
 
-#include <algorithm>
 #include <memory>
 
 using namespace deskflow::filetransfer;
@@ -26,11 +23,8 @@ namespace {
 class FakeClient : public BaseClientProxy
 {
 public:
-  FakeClient(const std::string &name, bool hopflow, PeerPlatform platform = PeerPlatform::Unknown)
-      : BaseClientProxy(name),
-        m_hopflow(hopflow)
+  FakeClient(const std::string &name, bool hopflow) : BaseClientProxy(name), m_hopflow(hopflow)
   {
-    setPlatform(platform);
   }
 
   struct Call
@@ -156,10 +150,9 @@ private:
 
 struct Setup
 {
-  FakeClient server{"server", true, PeerPlatform::MacOS};
-  FakeClient a{"a", true, PeerPlatform::Windows};
-  FakeClient b{"b", true, PeerPlatform::MacOS};
-  FakeClient linuxClient{"linux", true, PeerPlatform::Linux};
+  FakeClient server{"server", true};
+  FakeClient a{"a", true};
+  FakeClient b{"b", true};
   FakeClient deskflow{"deskflow", false};
   // the server computer is only used when it sends or receives itself
   FileTransferRouter router{&server, nullptr};
@@ -172,28 +165,6 @@ uint32_t requestedId(const FakeClient &client)
 {
   return client.calls.at(0).id;
 }
-
-size_t startsReceived(const FakeClient &client)
-{
-  return std::ranges::count_if(client.calls, [](const auto &call) { return call.what == "start"; });
-}
-
-//! A file on disk, for transfers the server computer sends itself
-struct LocalFile
-{
-  QTemporaryDir dir;
-  std::vector<std::string> paths;
-
-  LocalFile()
-  {
-    const auto path = dir.filePath("notes.txt");
-    QFile file(path);
-    if (file.open(QIODevice::WriteOnly)) {
-      file.write("hello");
-      paths = {path.toStdString()};
-    }
-  }
-};
 
 } // namespace
 
@@ -240,19 +211,6 @@ void FileTransferRouterTests::clipboardNotSentToDeskflowClient()
   QVERIFY(s.a.calls.empty());
 }
 
-void FileTransferRouterTests::clipboardNotSentToLinux()
-{
-  Setup s;
-  s.router.onOffer(&s.a, FileTransferPurpose::Clipboard, joinPaths(kPaths));
-  s.router.onEnter(&s.linuxClient);
-  QVERIFY(s.a.calls.empty());
-
-  // dropped files do go to Linux
-  s.router.onOffer(&s.a, FileTransferPurpose::Drop, joinPaths(kPaths));
-  s.router.onDrop(&s.linuxClient);
-  QCOMPARE(s.a.calls.size(), size_t(1));
-}
-
 void FileTransferRouterTests::newClipboardWithoutFilesClearsOffer()
 {
   Setup s;
@@ -273,60 +231,10 @@ void FileTransferRouterTests::deskflowClientGrabClearsOffer()
   s.router.onEnter(&s.server);
   QCOMPARE(s.a.calls.size(), size_t(1));
 
-  s.router.onEnter(&s.a);
   s.router.onOffer(&s.a, FileTransferPurpose::Clipboard, joinPaths(kPaths));
   s.router.onClipboardTakenByOther(&s.deskflow);
   s.router.onEnter(&s.b);
   QCOMPARE(s.a.calls.size(), size_t(1));
-}
-
-void FileTransferRouterTests::lateOfferDeliveredToActiveComputer()
-{
-  Setup s;
-  // the cursor reached b before a's offer, which a sends as the cursor leaves it
-  s.router.onEnter(&s.b);
-  s.router.onOffer(&s.a, FileTransferPurpose::Clipboard, joinPaths(kPaths));
-  QCOMPARE(s.a.calls.size(), size_t(1));
-  QCOMPARE(s.a.calls[0].what, std::string("request"));
-
-  // an offer from the computer the cursor is on waits for the cursor to move
-  Setup t;
-  t.router.onEnter(&t.a);
-  t.router.onOffer(&t.a, FileTransferPurpose::Clipboard, joinPaths(kPaths));
-  QVERIFY(t.a.calls.empty());
-}
-
-void FileTransferRouterTests::refreshOffersFilesCopiedWithoutGrab()
-{
-  Setup s;
-  LocalFile local;
-  QVERIFY(!local.paths.empty());
-
-  // the server computer copied without a grab, as Windows often does
-  s.router.refreshPrimaryClipboard(local.paths);
-  s.router.onEnter(&s.b);
-  QCOMPARE(startsReceived(s.b), size_t(1));
-}
-
-void FileTransferRouterTests::refreshWithSameFilesDoesNotResend()
-{
-  Setup s;
-  LocalFile local;
-  QVERIFY(!local.paths.empty());
-
-  s.router.refreshPrimaryClipboard(local.paths);
-  s.router.onEnter(&s.b);
-  s.router.onEnter(&s.server);
-
-  // leaving the server again with the same files on its clipboard
-  s.router.refreshPrimaryClipboard(local.paths);
-  s.router.onEnter(&s.b);
-  QCOMPARE(startsReceived(s.b), size_t(1));
-
-  // an empty clipboard withdraws the offer
-  s.router.refreshPrimaryClipboard({});
-  s.router.onEnter(&s.a);
-  QCOMPARE(startsReceived(s.a), size_t(0));
 }
 
 void FileTransferRouterTests::relaysTransferBetweenClients()

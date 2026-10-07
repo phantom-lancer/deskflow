@@ -222,9 +222,6 @@ public:
   //! Put files on the system clipboard, see IPlatformComputer::setClipboardFiles()
   bool setClipboardFiles(const std::vector<std::string> &paths);
 
-  //! Cancel the drag in progress, see IPlatformComputer::cancelDrag()
-  void cancelDrag();
-
   //@}
   //! @name accessors
   //@{

@@ -10,10 +10,22 @@
 #include "deskflow/Computer.h"
 #include "deskflow/FileTransfer.h"
 #include "deskflow/FileTransferLocations.h"
-#include "deskflow/FileTransferNotify.h"
+#include "deskflow/ipc/CoreIpc.h"
 #include "server/BaseClientProxy.h"
 
+#include <QString>
+
 using namespace deskflow::filetransfer;
+
+namespace {
+
+QString describeReceived(FileTransferPurpose purpose, const std::vector<std::string> &paths)
+{
+  const auto kind = purpose == FileTransferPurpose::Clipboard ? QStringLiteral("clipboard") : QStringLiteral("drop");
+  return kind + QLatin1Char('\n') + QString::fromStdString(joinPaths(paths));
+}
+
+} // namespace
 
 FileTransferRouter::FileTransferRouter(BaseClientProxy *primary, deskflow::Computer *computer)
     : m_primary(primary),
@@ -24,7 +36,8 @@ FileTransferRouter::FileTransferRouter(BaseClientProxy *primary, deskflow::Compu
               .received = [this](
                               uint32_t id, FileTransferPurpose purpose, const std::vector<std::string> &paths
                           ) { localReceived(purpose, id, paths); },
-              .failed = notifyFailed
+              .failed = [](const std::string &message
+                        ) { ipcSendToClient(QStringLiteral("fileTransferFailed"), QString::fromStdString(message)); }
           }
       )
 {
@@ -53,13 +66,6 @@ bool FileTransferRouter::canReceive(const BaseClientProxy *computer) const
   return computer == m_primary || computer->isHopflow();
 }
 
-bool FileTransferRouter::canPasteFiles(const BaseClientProxy *computer) const
-{
-  // other platforms cannot put files on their clipboard yet
-  const auto platform = computer->getPlatform();
-  return canReceive(computer) && (platform == PeerPlatform::MacOS || platform == PeerPlatform::Windows);
-}
-
 void FileTransferRouter::onClipboardFiles(BaseClientProxy *from, const std::vector<std::string> &paths)
 {
   if (paths.empty()) {
@@ -73,39 +79,17 @@ void FileTransferRouter::onClipboardFiles(BaseClientProxy *from, const std::vect
 
   LOG_DEBUG("\"%s\" copied %zu files", from->getName().c_str(), paths.size());
   m_clipboard = Offer{from, paths, {}};
-
-  // clients report files as the cursor leaves them, so it may already be elsewhere
-  if (m_active != nullptr) {
-    onEnter(m_active);
-  }
-}
-
-bool FileTransferRouter::isOwnPaste(const std::vector<std::string> &files) const
-{
-  // our own paste of received files, not a new copy
-  return !files.empty() && samePaths(files, m_localClipboardReceived);
-}
-
-void FileTransferRouter::offerPrimaryClipboard(const std::vector<std::string> &files)
-{
-  m_localClipboardReceived.clear();
-  onClipboardFiles(m_primary, files);
 }
 
 void FileTransferRouter::onPrimaryClipboardChanged()
 {
   const auto files = m_computer->getClipboardFiles();
-  if (!isOwnPaste(files)) {
-    offerPrimaryClipboard(files);
+  if (!files.empty() && files == m_localClipboardReceived) {
+    // our own paste of received files, not a new copy
+    return;
   }
-}
-
-void FileTransferRouter::refreshPrimaryClipboard(const std::vector<std::string> &files)
-{
-  const auto alreadyOffered = m_clipboard.owner == m_primary && samePaths(files, m_clipboard.paths);
-  if (!isOwnPaste(files) && !alreadyOffered) {
-    offerPrimaryClipboard(files);
-  }
+  m_localClipboardReceived.clear();
+  onClipboardFiles(m_primary, files);
 }
 
 void FileTransferRouter::onClipboardTakenByOther(BaseClientProxy *by)
@@ -137,9 +121,8 @@ bool FileTransferRouter::isDragging(const BaseClientProxy *computer) const
 
 void FileTransferRouter::onEnter(BaseClientProxy *computer)
 {
-  m_active = computer;
   auto &offer = m_clipboard;
-  if (!m_enabled || offer.owner == nullptr || offer.owner == computer || !canPasteFiles(computer) ||
+  if (!m_enabled || offer.owner == nullptr || offer.owner == computer || !canReceive(computer) ||
       offer.deliveredTo.contains(computer)) {
     return;
   }
@@ -216,14 +199,11 @@ void FileTransferRouter::localReceived(FileTransferPurpose purpose, uint32_t id,
     }
     removeOldClipboardTransfers(id);
   }
-  notifyReceived(purpose, paths);
+  ipcSendToClient(QStringLiteral("filesReceived"), describeReceived(purpose, paths));
 }
 
 void FileTransferRouter::onClientRemoved(BaseClientProxy *client)
 {
-  if (m_active == client) {
-    m_active = nullptr;
-  }
   if (m_clipboard.owner == client) {
     m_clipboard = {};
   }
@@ -278,7 +258,7 @@ void FileTransferRouter::onStart(
     m_routes.erase(it);
     from->fileEnd(id, FileTransferStatus::Cancelled);
     if (parsed && m_enabled) {
-      notifyFailed("the files are larger than the limit");
+      ipcSendToClient(QStringLiteral("fileTransferFailed"), QStringLiteral("the files are larger than the limit"));
     }
     return;
   }

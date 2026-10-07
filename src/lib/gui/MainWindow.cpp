@@ -311,9 +311,6 @@ void MainWindow::connectSlots()
   connect(&m_coreProcess, &CoreProcess::missingKeyboardLayouts, this, &MainWindow::handleMissingKeyboardLayouts);
   connect(&m_coreProcess, &CoreProcess::filesReceived, this, &MainWindow::handleFilesReceived);
   connect(&m_coreProcess, &CoreProcess::fileTransferFailed, this, &MainWindow::handleFileTransferFailed);
-  connect(&m_coreProcess, &CoreProcess::dragProbeRequested, m_dragProbe, &DragProbeWindow::probeAt);
-  connect(&m_coreProcess, &CoreProcess::dragProbeEnded, m_dragProbe, &DragProbeWindow::stop);
-  connect(m_dragProbe, &DragProbeWindow::filesDragged, &m_coreProcess, &CoreProcess::sendDraggedFiles);
 
   connect(ui->btnToggleCore, &QPushButton::clicked, m_actionStartCore, &QAction::trigger, Qt::UniqueConnection);
 
@@ -867,8 +864,8 @@ void MainWindow::handleConnectionRefused(deskflow::core::ConnectionRefusal reaso
 
 void MainWindow::handleFilesReceived(const QString &details)
 {
-  // first item is how the files were sent, the rest are their paths
-  auto lines = decodeIpcList(details);
+  // first line is how the files were sent, the rest are their paths
+  auto lines = details.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
   if (lines.size() < 2) {
     return;
   }
@@ -887,8 +884,7 @@ void MainWindow::handleFilesReceived(const QString &details)
 
 void MainWindow::handleFileTransferFailed(const QString &message)
 {
-  const auto text = decodeIpcList(message).value(0);
-  m_trayIcon->showMessage(kAppName, tr("File transfer failed: %1").arg(text), QSystemTrayIcon::Warning);
+  m_trayIcon->showMessage(kAppName, tr("File transfer failed: %1").arg(message), QSystemTrayIcon::Warning);
 }
 
 void MainWindow::handleMissingKeyboardLayouts(const QString &layouts)

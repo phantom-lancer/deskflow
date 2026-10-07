@@ -19,12 +19,8 @@ private Q_SLOTS:
   void clipboardDeliveredOnceOnEnter();
   void clipboardNotSentBackToOwner();
   void clipboardNotSentToDeskflowClient();
-  void clipboardNotSentToLinux();
   void newClipboardWithoutFilesClearsOffer();
   void deskflowClientGrabClearsOffer();
-  void lateOfferDeliveredToActiveComputer();
-  void refreshOffersFilesCopiedWithoutGrab();
-  void refreshWithSameFilesDoesNotResend();
   void relaysTransferBetweenClients();
   void ignoresMessagesFromWrongEnd();
   void refusesUnknownTransfer();
