@@ -618,6 +618,24 @@ Do you want to connect to the server?
         <source>%1 Connection Error</source>
         <translation>%1 Error de conexión</translation>
     </message>
+    <message numerus="yes">
+        <source>%n item(s) copied from another computer, ready to paste.</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Received %n item(s) in %1</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>File transfer failed: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message>
         <source>Invalid Computer Name</source>
         <translation type="unfinished"></translation>
@@ -1099,6 +1117,26 @@ Al habilitar esta opción, se deshabilitará la interfaz gráfica de usuario (GU
     <message>
         <source>Enable lock to computer at startup</source>
         <translation type="unfinished">Activar el bloqueo del ordenador al iniciar</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enables compatibility with programs that use either the Synergy or Barrier protocols:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Synergy 3 uses the Synergy protocol.&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Barrier, Input-Leap and Synergy 1 uses the Barrier protocol.&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;A Hopflow or Deskflow client will automatically use either the Synergy or Barrier protocol depending on the server protocol.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>When control moves between a Mac and another computer, Ctrl on one acts as Cmd on the other. Computers with a custom Ctrl or Super mapping are not changed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Swap Ctrl and Cmd automatically between Mac and other computers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy files on one computer and paste them on another, or drag them across the screen edge. Only works between computers running Hopflow.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enable file transfer</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

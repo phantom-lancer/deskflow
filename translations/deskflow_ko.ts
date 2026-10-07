@@ -578,6 +578,22 @@ Do you want to connect to the server?
         <source>&lt;p&gt;Failed to connect to the server &apos;%1&apos;.&lt;/p&gt;&lt;p&gt;A Client with your name is already connected to the server.&lt;/p&gt;Please ensure that you&apos;re using a unique name and that only a single instance of the client process is running.&lt;/p&gt;</source>
         <translation>&lt;p&gt;서버 &apos;%1&apos;에 연결하지 못했습니다.&lt;/p&gt;&lt;p&gt;같은 이름의 클라이언트가 이미 서버에 연결되어 있습니다.&lt;/p&gt;&lt;p&gt;고유한 이름을 사용하고, 클라이언트 프로세스가 하나만 실행 중인지 확인하세요.&lt;/p&gt;</translation>
     </message>
+    <message numerus="yes">
+        <source>%n item(s) copied from another computer, ready to paste.</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Received %n item(s) in %1</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>File transfer failed: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message>
         <source>View &amp;Help</source>
         <translation type="unfinished">도움말 보기(&amp;H)</translation>
@@ -1099,6 +1115,26 @@ Enabling this setting will disable the server config GUI.</source>
     <message>
         <source>Enable lock to computer at startup</source>
         <translation>시작 시 컴퓨터 잠금 사용</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enables compatibility with programs that use either the Synergy or Barrier protocols:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Synergy 3 uses the Synergy protocol.&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Barrier, Input-Leap and Synergy 1 uses the Barrier protocol.&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;A Hopflow or Deskflow client will automatically use either the Synergy or Barrier protocol depending on the server protocol.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>When control moves between a Mac and another computer, Ctrl on one acts as Cmd on the other. Computers with a custom Ctrl or Super mapping are not changed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Swap Ctrl and Cmd automatically between Mac and other computers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy files on one computer and paste them on another, or drag them across the screen edge. Only works between computers running Hopflow.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enable file transfer</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

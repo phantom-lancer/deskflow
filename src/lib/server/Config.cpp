@@ -554,6 +554,9 @@ void Config::readSectionOptions(ConfigReadContext &s)
   addOption("", kOptionWin32KeepForeground, Settings::value(Settings::Server::Win32KeepForeground).toBool());
   addOption("", kOptionClipboardSharing, Settings::value(Settings::Server::EnableClipboard).toBool());
   addOption("", kOptionClipboardSharingSize, Settings::value(Settings::Server::ClipboardSize).toUInt() * 1024);
+  addOption("", kOptionAutoSwapCtrlCmd, Settings::value(Settings::Server::AutoSwapCtrlCmd).toBool());
+  addOption("", kOptionFileTransfer, Settings::value(Settings::Server::EnableFileTransfer).toBool());
+  addOption("", kOptionFileTransferMaxSize, Settings::value(Settings::Server::FileTransferMaxSize).toUInt());
 
   if (const auto address = Settings::value(Settings::Core::Interface).toString(); !address.isEmpty()) {
     m_deskflowAddress = NetworkAddress(address.toStdString(), Settings::value(Settings::Core::Port).toInt());

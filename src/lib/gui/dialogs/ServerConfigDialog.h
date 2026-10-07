@@ -62,6 +62,9 @@ protected:
   void toggleClipboard(bool enabled);
   void setClipboardLimit(int limit);
 
+  void toggleFileTransfer(bool enabled);
+  void setFileTransferLimit(int limit);
+
   void toggleHeartbeat(bool enabled);
   void setHeartbeat(int rate);
 
@@ -109,6 +112,8 @@ private:
   int m_switchDelay;
   int m_switchDoubleTap;
   uint m_clipboardSize;
+  bool m_enableFileTransfer;
+  uint m_fileTransferMaxSize;
   bool m_relativeMouseMoves;
   bool m_enableSwitchDelay;
   bool m_enableSwitchDoubleTap;
