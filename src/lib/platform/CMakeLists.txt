@@ -54,6 +54,8 @@ if(WIN32)
     MSWindowsDesks.h
     MSWindowsEventQueueBuffer.cpp
     MSWindowsEventQueueBuffer.h
+    MSWindowsFileClipboard.cpp
+    MSWindowsFileClipboard.h
     MSWindowsHook.cpp
     MSWindowsHook.h
     MSWindowsKeyState.cpp
@@ -96,14 +98,14 @@ elseif(APPLE)
     OSXComputer.mm
     OSXEventQueueBuffer.cpp
     OSXEventQueueBuffer.h
+    OSXFilePasteboard.h
+    OSXFilePasteboard.mm
     OSXKeyLayoutResource.cpp
     OSXKeyLayoutResource.h
     OSXKeyState.cpp
     OSXKeyState.h
     OSXMediaKeySupport.h
     OSXMediaKeySupport.m
-    OSXPasteboardPeeker.h
-    OSXPasteboardPeeker.m
     OSXPowerManager.cpp
     OSXPowerManager.h
     OSXScreenSaver.cpp
