@@ -13,6 +13,8 @@
 #include "config/ServerConfig.h"
 
 #include <QDialog>
+#include <QList>
+#include <QStringList>
 
 class SettingsDialogButtonBox;
 class QItemSelection;

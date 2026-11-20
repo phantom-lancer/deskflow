@@ -235,6 +235,8 @@ void ServerConfigDialog::setupMediaKeyControls()
 
   refreshMediaKeyControls();
   m_mediaKeysGroup->setVisible(ui->groupExternalConfig->isChecked());
+  m_mediaKeysGroup->setEnabled(Settings::isWritable());
+  setButtonBoxEnabledButtons();
 }
 
 void ServerConfigDialog::refreshMediaKeyControls(bool defaults)

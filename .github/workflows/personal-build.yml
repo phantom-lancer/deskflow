@@ -103,3 +103,59 @@ jobs:
           path: deskflow-personal-linux-x86_64.flatpak
           if-no-files-found: error
           retention-days: 14
+
+  publish-release:
+    name: Publish rolling Windows + Linux release
+    needs: [windows-msi, linux-source-tests, linux-flatpak]
+    if: success()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+      - name: Prepare release assets and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          windows_msi="$(find artifacts/deskflow-windows-x64-msi -maxdepth 1 -type f -name '*.msi' -print -quit)"
+          linux_bundle="$(find artifacts/deskflow-linux-x86_64-flatpak -maxdepth 1 -type f -name '*.flatpak' -print -quit)"
+          test -n "$windows_msi"
+          test -n "$linux_bundle"
+          cp "$windows_msi" release/deskflow-personal-windows-x64.msi
+          cp "$linux_bundle" release/deskflow-personal-linux-x86_64.flatpak
+          sha256sum release/*.msi release/*.flatpak > release/SHA256SUMS.txt
+      - name: Move rolling release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git tag -f personal-continuous "$GITHUB_SHA"
+          git push --force origin refs/tags/personal-continuous:refs/tags/personal-continuous
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: personal-continuous
+          target_commitish: ${{ github.sha }}
+          name: Deskflow Personal - Windows + Linux
+          body: |
+            Автоматическая сборка Deskflow Personal для Windows x64 и Linux x86_64.
+
+            Сборка и unit-тесты прошли в GitHub Actions.
+            Исходный commit: ${{ github.sha }}
+
+            В релиз входят MSI, Flatpak и SHA256SUMS.txt.
+          prerelease: true
+          make_latest: false
+          generate_release_notes: false
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          files: |
+            release/deskflow-personal-windows-x64.msi
+            release/deskflow-personal-linux-x86_64.flatpak
+            release/SHA256SUMS.txt
