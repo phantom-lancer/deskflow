@@ -55,9 +55,10 @@ bool FileTransferRouter::canReceive(const BaseClientProxy *computer) const
 
 bool FileTransferRouter::canPasteFiles(const BaseClientProxy *computer) const
 {
-  // other platforms cannot put files on their clipboard yet
+  // Windows, macOS and Linux X11 publish local file lists through their native clipboard APIs.
   const auto platform = computer->getPlatform();
-  return canReceive(computer) && (platform == PeerPlatform::MacOS || platform == PeerPlatform::Windows);
+  return canReceive(computer) &&
+         (platform == PeerPlatform::MacOS || platform == PeerPlatform::Windows || platform == PeerPlatform::Linux);
 }
 
 void FileTransferRouter::onClipboardFiles(BaseClientProxy *from, const std::vector<std::string> &paths)

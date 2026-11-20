@@ -45,6 +45,10 @@ std::string pathToUtf8(const std::filesystem::path &path);
 std::string joinPaths(const std::vector<std::string> &paths);
 std::vector<std::string> splitPaths(const std::string &joined);
 
+//! Encode/decode RFC 2483 text/uri-list data for local file clipboard sharing.
+std::string pathsToFileUriList(const std::vector<std::string> &paths);
+std::vector<std::string> fileUriListToPaths(const std::string &uris);
+
 //! True if both lists name the same paths, ignoring Unicode normalization
 /*!
 macOS reports file names in decomposed form, so a path read back from the

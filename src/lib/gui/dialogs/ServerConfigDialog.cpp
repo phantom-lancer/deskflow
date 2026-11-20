@@ -18,119 +18,16 @@
 #include "dialogs/HotkeyDialog.h"
 #include "gui/widgets/SettingsDialogButtonBox.h"
 
-#include <QCheckBox>
-#include <QFile>
+#include <QComboBox>
 #include <QFileDialog>
-#include <QGridLayout>
+#include <QFormLayout>
 #include <QGroupBox>
 #include <QLabel>
 #include <QMessageBox>
-#include <QRegularExpression>
-#include <QSaveFile>
-#include <QSignalBlocker>
+#include <QPushButton>
 #include <QVBoxLayout>
 
 using enum ComputerConfig::SwitchCorner;
-
-namespace {
-
-bool writeMediaKeyHotkeys(const QString &fileName, const QStringList &targets, QString &error)
-{
-  QFile input(fileName);
-  if (!input.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    error = input.errorString();
-    return false;
-  }
-
-  const QString original = QString::fromUtf8(input.readAll());
-  input.close();
-  QStringList lines = original.split(QLatin1Char('\n'));
-
-  int optionsStart = -1;
-  int optionsEnd = -1;
-  bool inOptions = false;
-  for (int i = 0; i < lines.size(); ++i) {
-    const auto trimmed = lines.at(i).trimmed();
-    if (trimmed.startsWith(QStringLiteral("section:"), Qt::CaseInsensitive)) {
-      inOptions = trimmed.mid(8).trimmed().compare(QStringLiteral("options"), Qt::CaseInsensitive) == 0;
-      if (inOptions)
-        optionsStart = i;
-      continue;
-    }
-    if (inOptions && trimmed == QStringLiteral("end")) {
-      optionsEnd = i;
-      break;
-    }
-  }
-
-  static const QRegularExpression mediaLine(
-      QStringLiteral("^\\s*keystroke\\(F[678]\\)\\s*=.*$"),
-      QRegularExpression::CaseInsensitiveOption
-  );
-
-  const QString targetArgument =
-      targets.contains(QStringLiteral("*")) ? QStringLiteral("*") : targets.join(QLatin1Char(':'));
-  QStringList mappings;
-  if (!targetArgument.isEmpty()) {
-    mappings << QStringLiteral("\tkeystroke(F6) = keystroke(AudioPrev,%1)").arg(targetArgument);
-    mappings << QStringLiteral("\tkeystroke(F7) = keystroke(AudioPlay,%1)").arg(targetArgument);
-    mappings << QStringLiteral("\tkeystroke(F8) = keystroke(AudioNext,%1)").arg(targetArgument);
-  }
-
-  if (optionsStart >= 0) {
-    if (optionsEnd < 0) {
-      error = QStringLiteral("The options section has no closing 'end' line.");
-      return false;
-    }
-
-    int insertAt = optionsEnd;
-    for (int i = optionsEnd - 1; i > optionsStart; --i) {
-      if (mediaLine.match(lines.at(i)).hasMatch()) {
-        lines.removeAt(i);
-        --insertAt;
-      }
-    }
-    for (const auto &mapping : mappings)
-      lines.insert(insertAt++, mapping);
-  } else if (!mappings.isEmpty()) {
-    if (!lines.isEmpty() && !lines.last().isEmpty())
-      lines.append(QString());
-    lines.append(QStringLiteral("section: options"));
-    lines.append(mappings);
-    lines.append(QStringLiteral("end"));
-  }
-
-  QString updated = lines.join(QLatin1Char('\n'));
-  if (original.endsWith(QLatin1Char('\n')) && !updated.endsWith(QLatin1Char('\n')))
-    updated.append(QLatin1Char('\n'));
-  if (updated == original)
-    return true;
-
-  const QString backupPath = fileName + QStringLiteral(".before-media-hotkeys.bak");
-  if (QFile::exists(backupPath) && !QFile::remove(backupPath)) {
-    error = QStringLiteral("Could not replace the previous backup: %1").arg(backupPath);
-    return false;
-  }
-  if (!QFile::copy(fileName, backupPath)) {
-    error = QStringLiteral("Could not create a backup of %1").arg(fileName);
-    return false;
-  }
-
-  QSaveFile output(fileName);
-  if (!output.open(QIODevice::WriteOnly)) {
-    error = output.errorString();
-    return false;
-  }
-  const QByteArray bytes = updated.toUtf8();
-  if (output.write(bytes) != bytes.size() || !output.commit()) {
-    error = output.errorString();
-    output.cancelWriting();
-    return false;
-  }
-  return true;
-}
-
-} // namespace
 
 ServerConfigDialog::ServerConfigDialog(QWidget *parent, ServerConfig &config)
     : QDialog(parent, Qt::WindowTitleHint | Qt::WindowSystemMenuHint),
@@ -149,7 +46,7 @@ ServerConfigDialog::ServerConfigDialog(QWidget *parent, ServerConfig &config)
   layout()->addWidget(m_buttonBox);
 
   loadFromConfig();
-  setupMediaKeyControls();
+  setupMediaTab();
 
   ui->lblRemoveComputer->setPixmap(QIcon::fromTheme("user-trash").pixmap(QSize(64, 64)));
   ui->lblNewComputer->setEnabled(!model().isFull());
@@ -163,113 +60,176 @@ ServerConfigDialog::ServerConfigDialog(QWidget *parent, ServerConfig &config)
 
 ServerConfigDialog::~ServerConfigDialog() = default;
 
-void ServerConfigDialog::setupMediaKeyControls()
+void ServerConfigDialog::setupMediaTab()
 {
-  m_mediaKeysGroup = new QGroupBox(tr("Global media keys"), ui->tabAdvanced);
-  auto *layout = new QVBoxLayout(m_mediaKeysGroup);
+  auto *tab = new QWidget(ui->tabWidget);
+  auto *layout = new QVBoxLayout(tab);
+  auto *group = new QGroupBox(tr("Media keys"), tab);
+  auto *form = new QFormLayout(group);
+  auto *target = new QComboBox(group);
   auto *description = new QLabel(
-      tr("F6: previous track, F7: play/pause, F8: next track. These hotkeys are captured on the primary computer and sent to the selected destinations."),
-      m_mediaKeysGroup
+      tr("F6 - previous track, F7 - play/pause, F8 - next track. "
+         "Commands are sent to the selected computer regardless of cursor position."),
+      group
   );
-  description->setWordWrap(true);
-  layout->addWidget(description);
+  auto *warning = new QLabel(
+      tr("The all-computers mode sends each command to every connected computer. "
+         "If both computers have a media player open, both will respond."),
+      group
+  );
+  auto *migrationNote = new QLabel(
+      tr("Applying this preset switches to Deskflow's built-in configuration. "
+         "The computer layout and ScrollLock / Ctrl+Alt+L shortcuts are preserved. "
+         "The external configuration file is kept."),
+      group
+  );
+  auto *apply = new QPushButton(tr("Configure F6, F7 and F8"), group);
 
-  m_mediaKeysAllTargets = new QCheckBox(tr("Send to all computers"), m_mediaKeysGroup);
-  layout->addWidget(m_mediaKeysAllTargets);
+  target->setObjectName(QStringLiteral("comboMediaHotkeyTarget"));
+  target->addItem(tr("All connected computers"), QStringLiteral("all"));
+  target->addItem(tr("Active computer"), QStringLiteral("active"));
 
-  auto *targetWidget = new QWidget(m_mediaKeysGroup);
-  auto *targetLayout = new QGridLayout(targetWidget);
-  targetLayout->setContentsMargins(0, 0, 0, 0);
-
-  QStringList targetNames;
-  for (const auto &computer : m_serverConfig.computers()) {
-    if (!computer.isNull() && !targetNames.contains(computer.name()))
-      targetNames.append(computer.name());
+  for (const Computer &computer : serverConfig().computers()) {
+    if (computer.isNull()) {
+      continue;
+    }
+    const QString label = computer.isServer()
+                              ? tr("This PC (%1)").arg(computer.name())
+                              : tr("Computer (%1)").arg(computer.name());
+    target->addItem(label, computer.name());
   }
 
-  QFile configFile(ui->lineConfigFile->text());
-  if (configFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    static const QRegularExpression linkName(QStringLiteral("^\\s{4}([A-Za-z0-9_.-]+):\\s*$"));
-    bool inLinks = false;
-    while (!configFile.atEnd()) {
-      const QString line = QString::fromUtf8(configFile.readLine());
-      const QString trimmed = line.trimmed();
-      if (trimmed.startsWith(QStringLiteral("section:"), Qt::CaseInsensitive)) {
-        inLinks = trimmed.mid(8).trimmed().compare(QStringLiteral("links"), Qt::CaseInsensitive) == 0;
-        continue;
-      }
-      if (inLinks && trimmed == QStringLiteral("end")) {
-        inLinks = false;
-        continue;
-      }
-      if (inLinks) {
-        const auto match = linkName.match(line);
-        if (match.hasMatch() && !targetNames.contains(match.captured(1)))
-          targetNames.append(match.captured(1));
+  description->setWordWrap(true);
+  warning->setWordWrap(true);
+  warning->setObjectName(QStringLiteral("mediaHotkeyWarning"));
+  migrationNote->setWordWrap(true);
+  migrationNote->setObjectName(QStringLiteral("mediaHotkeyMigrationNote"));
+
+  form->addRow(tr("Send to:"), target);
+  form->addRow(description);
+  form->addRow(warning);
+  form->addRow(migrationNote);
+  form->addRow(apply);
+
+  layout->addWidget(group);
+  layout->addStretch(1);
+  ui->tabWidget->addTab(tab, tr("Multimedia"));
+
+  connect(apply, &QPushButton::clicked, this, [this, target] {
+    applyMediaHotkeys(target->currentData().toString());
+  });
+}
+
+void ServerConfigDialog::preserveCursorLockHotkeys()
+{
+  auto &hotkeys = serverConfig().hotkeys();
+
+  const auto ensureLockHotkey = [&hotkeys](const KeySequence &sequence) {
+    Hotkey *destination = nullptr;
+    for (Hotkey &hotkey : hotkeys) {
+      if (hotkey.keySequence() == sequence) {
+        destination = &hotkey;
+        break;
       }
     }
+
+    if (destination == nullptr) {
+      Hotkey hotkey;
+      hotkey.setKeySequence(sequence);
+      hotkeys.append(hotkey);
+      destination = &hotkeys.last();
+    }
+
+    for (const Action &existing : destination->actions()) {
+      if (existing.type() == static_cast<int>(Action::Type::lockCursorToComputer) &&
+          existing.lockCursorMode() == static_cast<int>(Action::LockCursorMode::toggle)) {
+        return;
+      }
+    }
+
+    Action action;
+    action.setType(static_cast<int>(Action::Type::lockCursorToComputer));
+    action.setLockCursorMode(static_cast<int>(Action::LockCursorMode::toggle));
+    destination->addAction(action);
+  };
+
+  KeySequence scrollLock;
+  scrollLock.appendKey(Qt::Key_ScrollLock, 0);
+  ensureLockHotkey(scrollLock);
+
+  KeySequence controlAltL;
+  controlAltL.appendKey(Qt::Key_Control, Qt::ControlModifier);
+  controlAltL.appendKey(Qt::Key_Alt, Qt::AltModifier);
+  controlAltL.appendKey(Qt::Key_L, Qt::ControlModifier | Qt::AltModifier);
+  ensureLockHotkey(controlAltL);
+}
+
+void ServerConfigDialog::applyMediaHotkeys(const QString &target)
+{
+  if (serverConfig().useExternalConfig()) {
+    preserveCursorLockHotkeys();
+    ui->groupExternalConfig->setChecked(false);
   }
 
-  for (int i = 0; i < targetNames.size(); ++i) {
-    auto *target = new QCheckBox(targetNames.at(i), targetWidget);
-    target->setProperty("mediaTargetName", targetNames.at(i));
-    m_mediaKeyTargetChecks.append(target);
-    targetLayout->addWidget(target, i / 3, i % 3);
-    connect(target, &QCheckBox::toggled, this, [this] { setButtonBoxEnabledButtons(); });
+  const QList<int> triggerKeys = {Qt::Key_F6, Qt::Key_F7, Qt::Key_F8};
+  const QList<int> mediaKeys = {Qt::Key_MediaPrevious, Qt::Key_MediaPlay, Qt::Key_MediaNext};
+  const QStringList mediaNames = {
+      QStringLiteral("AudioPrev"), QStringLiteral("AudioPlay"), QStringLiteral("AudioNext")
+  };
+
+  auto &hotkeys = serverConfig().hotkeys();
+  for (qsizetype index = 0; index < triggerKeys.size(); ++index) {
+    KeySequence trigger;
+    trigger.appendKey(triggerKeys[index], 0);
+
+    Hotkey *destination = nullptr;
+    for (Hotkey &hotkey : hotkeys) {
+      if (!(hotkey.keySequence() == trigger)) {
+        continue;
+      }
+
+      if (destination == nullptr) {
+        destination = &hotkey;
+      }
+
+      for (int actionIndex = hotkey.actions().size() - 1; actionIndex >= 0; --actionIndex) {
+        const Action &existing = hotkey.actions().at(actionIndex);
+        if (existing.type() == static_cast<int>(Action::Type::keystroke) &&
+            mediaNames.contains(existing.keySequence().toString())) {
+          hotkey.removeActionAt(actionIndex);
+        }
+      }
+    }
+
+    if (destination == nullptr) {
+      Hotkey hotkey;
+      hotkey.setKeySequence(trigger);
+      hotkeys.append(hotkey);
+      destination = &hotkeys.last();
+    }
+
+    Action action;
+    KeySequence mediaKey;
+    mediaKey.appendKey(mediaKeys[index], 0);
+    action.setKeySequence(mediaKey);
+    action.setType(static_cast<int>(Action::Type::keystroke));
+
+    if (target == QStringLiteral("active")) {
+      action.setUseActiveComputer(true);
+    } else if (target != QStringLiteral("all")) {
+      action.setHaveComputers(true);
+      action.addComputer(target);
+    }
+
+    destination->addAction(action);
   }
 
-  if (targetNames.isEmpty()) {
-    auto *noTargets = new QLabel(tr("No computer names were found in the current configuration."), targetWidget);
-    noTargets->setWordWrap(true);
-    targetLayout->addWidget(noTargets, 0, 0, 1, 3);
+  ui->listHotkeys->clear();
+  ui->listActions->clear();
+  for (const Hotkey &hotkey : hotkeys) {
+    ui->listHotkeys->addItem(hotkey.text());
   }
-
-  layout->addWidget(targetWidget);
-  ui->verticalLayout_2->insertWidget(0, m_mediaKeysGroup);
-
-  connect(m_mediaKeysAllTargets, &QCheckBox::toggled, this, [this](bool all) {
-    for (auto *target : m_mediaKeyTargetChecks)
-      target->setEnabled(!all);
-    setButtonBoxEnabledButtons();
-  });
-
-  refreshMediaKeyControls();
-  m_mediaKeysGroup->setVisible(ui->groupExternalConfig->isChecked());
-  m_mediaKeysGroup->setEnabled(Settings::isWritable());
   setButtonBoxEnabledButtons();
-}
-
-void ServerConfigDialog::refreshMediaKeyControls(bool defaults)
-{
-  if (m_mediaKeysAllTargets == nullptr)
-    return;
-
-  const QVariant saved = defaults ? Settings::defaultValue(Settings::Server::MediaKeyTargets)
-                                  : Settings::value(Settings::Server::MediaKeyTargets);
-  const QStringList selected = saved.toStringList();
-  const bool all = !saved.isValid() || selected.contains(QStringLiteral("*"));
-
-  const QSignalBlocker allBlocker(m_mediaKeysAllTargets);
-  m_mediaKeysAllTargets->setChecked(all);
-  for (auto *target : m_mediaKeyTargetChecks) {
-    const QSignalBlocker targetBlocker(target);
-    const QString name = target->property("mediaTargetName").toString();
-    target->setChecked(!all && selected.contains(name));
-    target->setEnabled(!all);
-  }
-}
-
-QStringList ServerConfigDialog::mediaKeyTargetsFromControls() const
-{
-  if (m_mediaKeysAllTargets == nullptr || m_mediaKeysAllTargets->isChecked())
-    return {QStringLiteral("*")};
-
-  QStringList targets;
-  for (auto *target : m_mediaKeyTargetChecks) {
-    if (target->isChecked())
-      targets.append(target->property("mediaTargetName").toString());
-  }
-  return targets;
 }
 
 bool ServerConfigDialog::addClient(const QString &clientName)
@@ -289,20 +249,6 @@ void ServerConfigDialog::save()
       return;
     }
   }
-  if (ui->groupExternalConfig->isChecked()) {
-    const QStringList targets = mediaKeyTargetsFromControls();
-    if (targets.isEmpty()) {
-      QMessageBox::warning(this, tr("Media keys"), tr("Select at least one destination computer for F6, F7 and F8."));
-      return;
-    }
-    QString error;
-    if (!writeMediaKeyHotkeys(ui->lineConfigFile->text(), targets, error)) {
-      QMessageBox::warning(this, tr("Media keys"), tr("Could not update the server configuration: %1").arg(error));
-      return;
-    }
-    Settings::setValue(Settings::Server::MediaKeyTargets, targets);
-  }
-
   // now that the dialog has been accepted, copy the new server config to the
   // original one, which is a reference to the one in MainWindow.
   setOriginalServerConfig(serverConfig());
@@ -478,8 +424,6 @@ void ServerConfigDialog::toggleClipboard(bool enabled)
   ui->sbClipboardSizeLimit->setEnabled(enabled);
   if (enabled && !ui->sbClipboardSizeLimit->value()) {
     m_clipboardSize = Settings::defaultValue(Settings::Server::ClipboardSize).toUInt();
-    m_enableFileTransfer = Settings::defaultValue(Settings::Server::EnableFileTransfer).toBool();
-    m_fileTransferMaxSize = Settings::defaultValue(Settings::Server::FileTransferMaxSize).toUInt();
     ui->sbClipboardSizeLimit->setValue(m_clipboardSize ? m_clipboardSize : 1);
   }
   setButtonBoxEnabledButtons();
@@ -617,8 +561,6 @@ void ServerConfigDialog::toggleExternalConfig(bool checked)
   ui->widgetExternalConfigControls->setEnabled(checked);
   ui->tabWidget->setTabEnabled(0, !checked);
   ui->tabWidget->setTabEnabled(1, !checked);
-  if (m_mediaKeysGroup)
-    m_mediaKeysGroup->setVisible(checked);
   serverConfig().setUseExternalConfig(checked);
   setButtonBoxEnabledButtons();
 }
@@ -683,7 +625,6 @@ void ServerConfigDialog::loadFromConfig()
     server->markAsServer();
   }
   updateControls();
-  refreshMediaKeyControls();
 }
 
 void ServerConfigDialog::resetFromSettings()
@@ -807,8 +748,6 @@ void ServerConfigDialog::updateControls() const
   ui->sbSwitchDoubleTap->setEnabled(writable && ui->cbSwitchDoubleTap->isChecked());
   ui->sbSwitchDelay->setEnabled(writable && ui->cbSwitchDelay->isChecked());
   ui->groupExternalConfig->setEnabled(writable);
-  if (m_mediaKeysGroup)
-    m_mediaKeysGroup->setEnabled(writable);
   setButtonBoxEnabledButtons();
 }
 
@@ -833,7 +772,6 @@ void ServerConfigDialog::restoreFromDefaults()
 
   refreshControls();
   updateControls();
-  refreshMediaKeyControls(true);
 }
 
 void ServerConfigDialog::setServerConfig()
@@ -880,9 +818,7 @@ bool ServerConfigDialog::isGeneralConfigModified() const
          m_relativeMouseMoves != Settings::value(Settings::Server::RelativeMouseMoves).toBool() ||
          m_win32keepForeground != Settings::value(Settings::Server::Win32KeepForeground).toBool() ||
          m_disableLockToComputer != Settings::value(Settings::Server::DisableLockToComputer).toBool() ||
-         m_defaultLockToComputerState != Settings::value(Settings::Server::DefaultLockToComputerState).toBool() ||
-         (ui->groupExternalConfig->isChecked() &&
-          mediaKeyTargetsFromControls() != Settings::value(Settings::Server::MediaKeyTargets).toStringList());
+         m_defaultLockToComputerState != Settings::value(Settings::Server::DefaultLockToComputerState).toBool();
 }
 
 bool ServerConfigDialog::isGeneralConfigDefault() const
@@ -903,9 +839,7 @@ bool ServerConfigDialog::isGeneralConfigDefault() const
          m_relativeMouseMoves == Settings::defaultValue(Settings::Server::RelativeMouseMoves).toBool() &&
          m_win32keepForeground == Settings::defaultValue(Settings::Server::Win32KeepForeground).toBool() &&
          m_disableLockToComputer == Settings::defaultValue(Settings::Server::DisableLockToComputer).toBool() &&
-         m_defaultLockToComputerState == Settings::defaultValue(Settings::Server::DefaultLockToComputerState).toBool() &&
-         (!ui->groupExternalConfig->isChecked() ||
-          mediaKeyTargetsFromControls() == Settings::defaultValue(Settings::Server::MediaKeyTargets).toStringList());
+         m_defaultLockToComputerState == Settings::defaultValue(Settings::Server::DefaultLockToComputerState).toBool();
 }
 
 void ServerConfigDialog::setButtonBoxEnabledButtons() const

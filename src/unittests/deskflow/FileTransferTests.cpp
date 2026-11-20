@@ -196,6 +196,34 @@ void FileTransferTests::splitAndJoinPaths()
   QCOMPARE(splitPaths("a\n\nb\n"), (std::vector<std::string>{"a", "b"}));
 }
 
+void FileTransferTests::fileUriListRoundTrip()
+{
+  QTemporaryDir directory;
+  QVERIFY(directory.isValid());
+  const std::vector<std::string> paths = {
+      directory.filePath(QStringLiteral("photo with spaces.jpg")).toStdString(),
+      directory.filePath(QStringLiteral("Привет/写真.png")).toStdString(),
+      directory.filePath(QStringLiteral("hash#percent%.txt")).toStdString()
+  };
+  const auto uris = pathsToFileUriList(paths);
+  QVERIFY(uris.find("text/uri-list") == std::string::npos);
+  QVERIFY(uris.find("%20") != std::string::npos);
+  QCOMPARE(fileUriListToPaths(uris), paths);
+}
+
+void FileTransferTests::fileUriListRejectsRemoteAndInvalidUris()
+{
+  const std::string uris =
+      "# clipboard comment\r\n"
+      "file:///tmp/local%20file.txt\r\n"
+      "file://localhost/tmp/localhost.txt\r\n"
+      "file://server/share/remote.txt\r\n"
+      "https://example.com/not-local.txt\r\n"
+      "file:///tmp/bad%ZZ.txt\r\n";
+  const std::vector<std::string> expected = {"/tmp/local file.txt", "/tmp/localhost.txt"};
+  QCOMPARE(fileUriListToPaths(uris), expected);
+}
+
 void FileTransferTests::samePathsIgnoresNormalization()
 {
   // "ö" precomposed, and as "o" plus a combining diaeresis, as macOS reports it

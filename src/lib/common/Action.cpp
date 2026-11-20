@@ -22,7 +22,7 @@ QString Action::text() const
   case keystroke: {
     QString commandArgs = keySequence().toString();
 
-    if (!keySequence().isMouseButton()) {
+    if (!keySequence().isMouseButton() && !useActiveComputer()) {
       const QStringList &computers = typeComputerNames();
       if (haveComputers() && !computers.isEmpty()) {
         QString computerList;
@@ -80,6 +80,7 @@ void Action::loadSettings(QSettings &settings)
   setLockCursorMode(settings.value(SettingsKeys::LockToComputer, static_cast<int>(LockCursorMode::toggle)).toInt());
   setActiveOnRelease(settings.value(SettingsKeys::ActiveOnRelease, false).toBool());
   setHaveComputers(settings.value(SettingsKeys::HasComputers, false).toBool());
+  setUseActiveComputer(settings.value(SettingsKeys::UseActiveComputer, false).toBool());
   setRestartServer(settings.value(SettingsKeys::RestartServer, false).toBool());
 }
 
@@ -100,6 +101,7 @@ void Action::saveSettings(QSettings &settings) const
   settings.setValue(SettingsKeys::LockToComputer, m_lockCursorMode);
   settings.setValue(SettingsKeys::ActiveOnRelease, m_activeOnRelease);
   settings.setValue(SettingsKeys::HasComputers, m_hasComputers);
+  settings.setValue(SettingsKeys::UseActiveComputer, m_useActiveComputer);
   settings.setValue(SettingsKeys::RestartServer, m_restartServer);
 }
 
@@ -195,6 +197,16 @@ void Action::setActiveOnRelease(bool b)
 void Action::setHaveComputers(bool b)
 {
   m_hasComputers = b;
+}
+
+bool Action::useActiveComputer() const
+{
+  return m_useActiveComputer;
+}
+
+void Action::setUseActiveComputer(bool enabled)
+{
+  m_useActiveComputer = enabled;
 }
 
 void Action::setRestartServer(bool b)

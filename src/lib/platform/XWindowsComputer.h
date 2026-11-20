@@ -67,6 +67,10 @@ public:
   bool canLeave() override;
   void leave() override;
   bool setClipboard(ClipboardID, const IClipboard *) override;
+  std::vector<std::string> getClipboardFiles() const override;
+  bool setClipboardFiles(const std::vector<std::string> &paths) override;
+  std::vector<std::string> getDraggedFiles() const override;
+  void cancelDrag() override;
   void checkClipboards() override;
   void openScreensaver(bool notify) override;
   void closeScreensaver() override;
@@ -207,6 +211,7 @@ private:
   // clipboards
   XWindowsClipboard *m_clipboard[kClipboardEnd];
   uint32_t m_sequenceNumber = 0;
+  mutable bool m_fileDragActive = false;
 
   // screen saver stuff
   XWindowsScreenSaver *m_screensaver = nullptr;

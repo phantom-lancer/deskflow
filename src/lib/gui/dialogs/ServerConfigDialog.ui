@@ -460,7 +460,7 @@
             <item>
              <widget class="QCheckBox" name="cbEnableFileTransfer">
               <property name="toolTip">
-               <string>Copy files on one computer and paste them on another, or drag them across the screen edge. Only works between computers running Hopflow.</string>
+               <string>Copy files on one computer and paste them on another, or drag them across the screen edge. Only works between computers running this Deskflow version.</string>
               </property>
               <property name="text">
                <string>Enable file transfer</string>
@@ -998,7 +998,3 @@ Enabling this setting will disable the server config GUI.</string>
   <tabstop>sbHeartbeat</tabstop>
   <tabstop>cbRelativeMouseMoves</tabstop>
   <tabstop>tabWidget</tabstop>
- </tabstops>
- <resources/>
- <connections/>
-</ui>

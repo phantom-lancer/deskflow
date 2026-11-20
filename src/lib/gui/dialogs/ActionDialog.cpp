@@ -91,6 +91,7 @@ void ActionDialog::accept()
     m_action.clearComputers();
 
   m_action.setHaveComputers(computerCount);
+  m_action.setUseActiveComputer(false);
 
   m_action.setSwitchComputerName(ui->comboSwitchToComputer->currentData().toString());
   m_action.setSwitchDirection(ui->comboSwitchInDirection->currentIndex());

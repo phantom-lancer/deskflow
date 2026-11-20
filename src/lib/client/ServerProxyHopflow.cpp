@@ -9,6 +9,7 @@
 #include "base/Log.h"
 #include "client/Client.h"
 #include "deskflow/ClipboardTypes.h"
+#include "deskflow/DragProbe.h"
 #include "deskflow/Computer.h"
 #include "deskflow/DeskflowException.h"
 #include "deskflow/FileTransfer.h"
@@ -119,10 +120,14 @@ bool ServerProxyHopflow::isAtEdge(int32_t x, int32_t y) const
 void ServerProxyHopflow::onMouseButton(ButtonID, bool pressed)
 {
   m_buttonsDown = pressed ? m_buttonsDown + 1 : std::max(0, m_buttonsDown - 1);
-  if (m_buttonsDown == 0 && !m_dragFiles.empty()) {
-    // released here, so the drag never left this computer
-    m_dragFiles.clear();
-    offer(FileTransferPurpose::Drop, {});
+  if (m_buttonsDown == 0) {
+    if (!m_dragFiles.empty()) {
+      // released here, so the drag never left this computer
+      m_dragFiles.clear();
+      offer(FileTransferPurpose::Drop, {});
+    }
+    // The probe may have been started before its first drag-enter arrived.
+    deskflow::dragprobe::stop();
   }
 }
 

@@ -21,6 +21,8 @@ private Q_SLOTS:
   void manifestRejected_data();
   void manifestRejected();
   void splitAndJoinPaths();
+  void fileUriListRoundTrip();
+  void fileUriListRejectsRemoteAndInvalidUris();
   void samePathsIgnoresNormalization();
   void uniqueDestination();
   void senderReceiverRoundTrip();

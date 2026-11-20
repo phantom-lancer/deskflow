@@ -88,6 +88,10 @@ public:
   bool has(Format) const override;
   std::string get(Format) const override;
 
+  //! Read or publish the X11 text/uri-list file clipboard without mixing it into text/image formats.
+  std::string getFileUris(Time time) const;
+  bool setFileUris(Time time, const std::string &uris);
+
 private:
   // remove all converters from our list
   void clearConverters();
@@ -293,6 +297,7 @@ private:
   bool m_owner = false;
   mutable Time m_timeOwned = 0;
   Time m_timeLost = 0;
+  std::string m_fileUris;
 
   // true iff open and clipboard owned by a motif app
   mutable bool m_motif;
@@ -313,6 +318,7 @@ private:
 
   // atoms we'll need
   Atom m_atomTargets;
+  Atom m_atomUriList;
   Atom m_atomMultiple;
   Atom m_atomTimestamp;
   Atom m_atomInteger;

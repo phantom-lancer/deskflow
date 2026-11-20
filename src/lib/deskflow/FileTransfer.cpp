@@ -6,10 +6,12 @@
 
 #include "deskflow/FileTransfer.h"
 
+#include <QDir>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRandomGenerator>
+#include <QUrl>
 
 #include <algorithm>
 #include <array>
@@ -96,6 +98,52 @@ std::vector<std::string> splitPaths(const std::string &joined)
       paths.push_back(joined.substr(start, end - start));
     }
     start = end + 1;
+  }
+  return paths;
+}
+
+std::string pathsToFileUriList(const std::vector<std::string> &paths)
+{
+  std::string result;
+  for (const auto &path : paths) {
+    if (path.empty()) {
+      continue;
+    }
+    const auto value = QString::fromUtf8(path.data(), static_cast<qsizetype>(path.size()));
+    if (!QDir::isAbsolutePath(value)) {
+      continue;
+    }
+    const QUrl url = QUrl::fromLocalFile(value);
+    if (!url.isValid() || !url.isLocalFile()) {
+      continue;
+    }
+    result += url.toEncoded(QUrl::FullyEncoded).toStdString();
+    result += "\r\n";
+  }
+  return result;
+}
+
+std::vector<std::string> fileUriListToPaths(const std::string &uris)
+{
+  std::vector<std::string> paths;
+  const auto lines = QString::fromUtf8(uris.data(), static_cast<qsizetype>(uris.size()))
+                         .split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+  for (const auto &line : lines) {
+    const auto value = line.trimmed();
+    if (value.isEmpty() || value.startsWith(QLatin1Char('#'))) {
+      continue;
+    }
+
+    const auto url = QUrl::fromEncoded(value.toUtf8(), QUrl::StrictMode);
+    if (!url.isValid() || !url.isLocalFile() ||
+        (!url.host().isEmpty() && url.host() != QStringLiteral("localhost"))) {
+      continue;
+    }
+
+    const auto path = url.toLocalFile();
+    if (!path.isEmpty() && QDir::isAbsolutePath(path)) {
+      paths.push_back(path.toUtf8().toStdString());
+    }
   }
   return paths;
 }
