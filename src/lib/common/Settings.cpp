@@ -390,6 +390,9 @@ QVariant Settings::defaultValue(const QString &key)
   if (key == Server::FileTransferMaxSize)
     return 2048; // MiB
 
+  if (key == Server::MediaKeyTargets)
+    return QStringList{QStringLiteral("*")};
+
   return QVariant();
 }
 

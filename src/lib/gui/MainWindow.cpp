@@ -89,14 +89,14 @@ void applyPlatformTheme()
   QApplication::setPalette(palette);
   QFile theme(QStringLiteral(":/themes/linux-dark.qss"));
   if (theme.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    QApplication::setStyleSheet(QString::fromUtf8(theme.readAll()));
+    qApp->setStyleSheet(QString::fromUtf8(theme.readAll()));
   }
 #elif defined(Q_OS_WIN)
   const auto themePath = isDarkMode() ? QStringLiteral(":/themes/windows-fluent-dark.qss")
                                       : QStringLiteral(":/themes/windows-fluent.qss");
   QFile theme(themePath);
   if (theme.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    QApplication::setStyleSheet(QString::fromUtf8(theme.readAll()));
+    qApp->setStyleSheet(QString::fromUtf8(theme.readAll()));
   }
 #endif
 }

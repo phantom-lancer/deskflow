@@ -1380,14 +1380,16 @@ extern const char *const kMsgHFileAck;
 extern const char *const kMsgHFileEnd;
 
 /**
- * @brief Size of one file transfer chunk in bytes
+ * @brief Size of one file transfer chunk in bytes.
+ * Smaller chunks limit synchronous disk work per event and let input events interleave.
  */
-static constexpr uint32_t kFileTransferChunkSize = 256 * 1024;
+static constexpr uint32_t kFileTransferChunkSize = 64 * 1024;
 
 /**
- * @brief Number of unacknowledged chunks a sender may have in flight
+ * @brief Number of unacknowledged chunks a sender may have in flight.
+ * Together with the chunk size this caps each transfer window at 512 KiB.
  */
-static constexpr uint32_t kFileTransferWindow = 32;
+static constexpr uint32_t kFileTransferWindow = 8;
 
 /** @} */ // end of protocol_hopflow group
 

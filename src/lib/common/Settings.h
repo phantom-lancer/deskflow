@@ -114,6 +114,7 @@ public:
     inline static const auto ExternalConfig = QStringLiteral("server/externalConfig");
     inline static const auto ExternalConfigFile = QStringLiteral("server/externalConfigFile");
     inline static const auto FileTransferMaxSize = QStringLiteral("server/fileTransferMaxSize");
+    inline static const auto MediaKeyTargets = QStringLiteral("server/mediaKeyTargets");
     inline static const auto GridHeight = QStringLiteral("server/gridHeight");
     inline static const auto GridWidth = QStringLiteral("server/gridWidth");
     inline static const auto Heartbeat = QStringLiteral("server/heartbeat");
@@ -331,6 +332,7 @@ private:
     , Server::EnableSwitchDoubleTap
     , Server::ExternalConfig
     , Server::ExternalConfigFile
+    , Server::MediaKeyTargets
     , Server::EnableFileTransfer
     , Server::FileTransferMaxSize
     , Server::GridHeight

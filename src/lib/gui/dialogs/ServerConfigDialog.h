@@ -16,6 +16,8 @@
 
 class SettingsDialogButtonBox;
 class QItemSelection;
+class QCheckBox;
+class QGroupBox;
 
 namespace Ui {
 class ServerConfigDialog;
@@ -96,6 +98,9 @@ private:
   void initConnections() const;
   void updateControls() const;
   void restoreFromDefaults();
+  void setupMediaKeyControls();
+  void refreshMediaKeyControls(bool defaults = false);
+  QStringList mediaKeyTargetsFromControls() const;
   void setServerConfig();
   bool isGeneralConfigModified() const;
   bool isGeneralConfigDefault() const;
@@ -125,4 +130,7 @@ private:
   ServerConfig m_serverConfig;
   ComputerSetupModel m_computerSetupModel;
   SettingsDialogButtonBox *m_buttonBox = nullptr;
+  QGroupBox *m_mediaKeysGroup = nullptr;
+  QCheckBox *m_mediaKeysAllTargets = nullptr;
+  QList<QCheckBox *> m_mediaKeyTargetChecks;
 };
