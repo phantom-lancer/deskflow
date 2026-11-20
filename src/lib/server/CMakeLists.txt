@@ -34,8 +34,6 @@ add_library(server STATIC
   ClientProxyUnknown.h
   Config.cpp
   Config.h
-  CtrlCmdSwap.cpp
-  CtrlCmdSwap.h
   FileTransferRouter.cpp
   FileTransferRouter.h
   InputFilter.cpp

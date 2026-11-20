@@ -23,7 +23,6 @@
 #include "server/ClientListener.h"
 #include "server/ClientProxy.h"
 #include "server/ClientProxyUnknown.h"
-#include "server/CtrlCmdSwap.h"
 #include "server/FileTransferRouter.h"
 #include "server/PrimaryClient.h"
 
@@ -1131,8 +1130,6 @@ void Server::processOptions()
       m_defaultLockToComputerState = (value != 0);
     } else if (id == kOptionDisableLockToComputer) {
       m_disableLockToComputer = (value != 0);
-    } else if (id == kOptionAutoSwapCtrlCmd) {
-      m_autoSwapCtrlCmd = (value != 0);
     } else if (id == kOptionFileTransfer) {
       m_fileTransfers->setEnabled(value != 0);
     } else if (id == kOptionFileTransferMaxSize) {
