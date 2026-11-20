@@ -1,0 +1,105 @@
+name: Deskflow custom Windows and Linux builds
+
+on:
+  push:
+    branches:
+      - work/file-transfer
+
+permissions:
+  contents: read
+
+concurrency:
+  group: custom-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-msi:
+    name: Windows x64 MSI + unit tests
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Setup MSVC
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: amd64
+          spectre: true
+      - name: Install dependencies
+        id: deps
+        uses: ./.github/actions/install-dependencies
+        with:
+          qt-version: 6.12
+          vcpkg-triplet: x64-windows-release
+      - name: Configure
+        run: cmake -Bbuild -G Ninja -DCMAKE_BUILD_TYPE=Release -DSKIP_BUILD_TESTS=ON -DCMAKE_COMPILE_WARNING_AS_ERROR=ON ${{ steps.deps.outputs.vcpkg-cmake-config }} -DPACKAGE_VERSION_LABEL="Personal"
+      - name: Build
+        run: cmake --build build --config Release -j8
+      - name: Unit tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --test-dir build/src/unittests --output-on-failure
+      - name: Package MSI
+        run: cmake --build build --config Release -j8 --target package
+      - uses: actions/upload-artifact@v7
+        with:
+          name: deskflow-windows-x64-msi
+          path: build/deskflow-*.msi
+          if-no-files-found: error
+          retention-days: 14
+
+  linux-source-tests:
+    name: Linux x86_64 compile + unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: ubuntu:latest
+    steps:
+      - name: Install Git
+        run: |
+          apt-get update -qq
+          apt-get install -y git ca-certificates
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install dependencies
+        uses: ./.github/actions/install-dependencies
+        with:
+          like: debian
+      - name: Configure
+        run: cmake -Bbuild -G Ninja -DCMAKE_BUILD_TYPE=Release -DSKIP_BUILD_TESTS=ON -DCMAKE_COMPILE_WARNING_AS_ERROR=ON -DCMAKE_INSTALL_PREFIX=/usr
+      - name: Build
+        run: cmake --build build --config Release -j8
+      - name: Unit tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --test-dir build/src/unittests --output-on-failure
+
+  linux-flatpak:
+    name: Linux x86_64 Flatpak
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.10
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Allow local manifest sources
+        run: git config --global protocol.file.allow always
+      - name: Build Flatpak
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: deskflow-personal-linux-x86_64.flatpak
+          manifest-path: deploy/linux/flatpak/org.deskflow.deskflow.yml
+          cache-key: personal-flatpak-x86_64-v2
+          arch: x86_64
+          upload-artifact: false
+      - uses: actions/upload-artifact@v7
+        with:
+          name: deskflow-linux-x86_64-flatpak
+          path: deskflow-personal-linux-x86_64.flatpak
+          if-no-files-found: error
+          retention-days: 14
