@@ -14,21 +14,28 @@ concurrency:
 
 jobs:
   port:
-    if: ${{ !contains(github.event.head_commit.message, 'Port Hopflow file transfer') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
-      - name: Checkout our Deskflow fork
+      - name: Checkout Deskflow fork
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Apply only Hopflow file-transfer commits
+      - name: Apply Hopflow file-transfer commits
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # A previous successful run leaves this marker. Avoid replaying the port
+          # when later documentation or CI commits are pushed to the work branch.
+          if git log --format=%B | grep -Fq "Port Hopflow file transfer"; then
+            echo "Hopflow transfer port is already present."
+            exit 0
+          fi
+
           git remote add hopflow https://github.com/Eyad-Alqaysi/hopflow.git
           git fetch --no-tags hopflow main
 
@@ -43,10 +50,22 @@ jobs:
           )
 
           for commit in "${commits[@]}"; do
+            if git log --format=%B | grep -Fq "$commit"; then
+              echo "Already applied: $commit"
+              continue
+            fi
+
             echo "::group::Cherry-pick $commit"
-            git cherry-pick -x "$commit"
+            if ! git -c core.whitespace=cr-at-eol cherry-pick --empty=drop -X theirs -x "$commit"; then
+              echo "::error::Cherry-pick failed for $commit. No partial result will be pushed."
+              git cherry-pick --abort || true
+              exit 1
+            fi
             echo "::endgroup::"
           done
 
-          git commit --allow-empty -m "Port Hopflow file transfer"
+          if ! git log --format=%s | grep -Fxq "Port Hopflow file transfer"; then
+            git commit --allow-empty -m "Port Hopflow file transfer"
+          fi
+
           git push origin HEAD:work/file-transfer
