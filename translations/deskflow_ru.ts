@@ -1138,7 +1138,18 @@ Enabling this setting will disable the server config GUI.</source>
         <source>Enable file transfer</source>
         <translation type="unfinished"></translation>
     </message>
-</context>
+    <message><source>Media keys</source><translation>Медиаклавиши</translation></message>
+    <message><source>F6 - previous track, F7 - play/pause, F8 - next track. Commands are sent to the selected computer regardless of cursor position.</source><translation>F6 - предыдущий трек, F7 - воспроизведение/пауза, F8 - следующий трек. Команды отправляются выбранному компьютеру независимо от положения курсора.</translation></message>
+    <message><source>The all-computers mode sends each command to every connected computer. If both computers have a media player open, both will respond.</source><translation>Режим "Все компьютеры" отправляет команды всем подключённым компьютерам. Если на обоих открыт плеер, среагируют оба.</translation></message>
+    <message><source>Applying this preset switches to Deskflow's built-in configuration. The computer layout and ScrollLock / Ctrl+Alt+L shortcuts are preserved. The external configuration file is kept.</source><translation>При применении включается встроенная конфигурация Deskflow. Схема компьютеров и сочетания ScrollLock / Ctrl+Alt+L сохраняются. Внешний файл конфигурации остаётся на месте.</translation></message>
+    <message><source>All connected computers</source><translation>Все подключённые компьютеры</translation></message>
+    <message><source>Active computer</source><translation>Активный компьютер</translation></message>
+    <message><source>This PC (%1)</source><translation>Этот ПК (%1)</translation></message>
+    <message><source>Computer (%1)</source><translation>Компьютер (%1)</translation></message>
+    <message><source>Send to:</source><translation>Отправлять на:</translation></message>
+    <message><source>Configure F6, F7 and F8</source><translation>Настроить F6, F7 и F8</translation></message>
+    <message><source>Multimedia</source><translation>Мультимедиа</translation></message>
+    </context>
 <context>
     <name>SettingsDialog</name>
     <message>
