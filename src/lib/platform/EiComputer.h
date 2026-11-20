@@ -53,6 +53,8 @@ public:
   bool getClipboard(ClipboardID id, IClipboard *) const override;
   void getShape(std::int32_t &x, std::int32_t &y, std::int32_t &width, std::int32_t &height) const override;
   void getCursorPos(std::int32_t &x, std::int32_t &y) const override;
+  std::vector<std::string> getDraggedFiles() const override;
+  void cancelDrag() override;
 
   // IPrimaryComputer overrides
   void reconfigure(std::uint32_t activeSides) override;
@@ -190,8 +192,8 @@ private:
 
   // server: last pointer position
   // client: position sent before enter()
-  std::int32_t m_cursorX = 0;
-  std::int32_t m_cursorY = 0;
+  mutable std::int32_t m_cursorX = 0;
+  mutable std::int32_t m_cursorY = 0;
 
   double m_bufferDX = 0;
   double m_bufferDY = 0;

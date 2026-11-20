@@ -14,6 +14,7 @@
 #include "common/Settings.h"
 #include "deskflow/App.h"
 #include "deskflow/IComputer.h"
+#include "deskflow/DragProbe.h"
 #include "deskflow/OptionTypes.h"
 #include "platform/EiClipboard.h"
 #include "platform/EiEventQueueBuffer.h"
@@ -229,6 +230,31 @@ void EiComputer::warpCursor(int32_t x, int32_t y)
   m_cursorY = y;
 }
 
+std::vector<std::string> EiComputer::getDraggedFiles() const
+{
+  if (!m_buttons.test(kButtonLeft)) {
+    return {};
+  }
+
+  // The GUI hosts a small transparent drop target near the virtual cursor.
+  // It is only activated while a left-button drag reaches a screen edge.
+  dragprobe::start(m_cursorX, m_cursorY);
+  return dragprobe::files();
+}
+
+void EiComputer::cancelDrag()
+{
+  dragprobe::stop();
+
+  // Linux is used as a secondary computer here: release its synthetic drag
+  // with Escape and a left-button release after the files have crossed over.
+  if (!m_isPrimary && m_buttons.test(kButtonLeft)) {
+    fakeKey(1, true);  // Linux evdev KEY_ESC
+    fakeKey(1, false);
+    fakeMouseButton(kButtonLeft, false);
+  }
+}
+
 std::uint32_t EiComputer::registerHotKey(KeyID key, KeyModifierMask mask)
 {
   static std::uint32_t next_id;
@@ -318,6 +344,13 @@ void EiComputer::fakeMouseButton(ButtonID button, bool press)
 {
   uint32_t code;
 
+  if (button < NumButtonIDs) {
+    m_buttons.set(button, press);
+  }
+  if (button == kButtonLeft && !press) {
+    dragprobe::stop();
+  }
+
   if (!m_eiPointer)
     return;
 
@@ -343,6 +376,9 @@ void EiComputer::fakeMouseButton(ButtonID button, bool press)
 
 void EiComputer::fakeMouseMove(int32_t x, int32_t y)
 {
+  m_cursorX = x;
+  m_cursorY = y;
+
   // We get one motion event before enter() with the target position
   if (!m_isOnComputer) {
     m_cursorX = x;
@@ -360,6 +396,9 @@ void EiComputer::fakeMouseMove(int32_t x, int32_t y)
 
 void EiComputer::fakeMouseRelativeMove(int32_t dx, int32_t dy) const
 {
+  m_cursorX += dx;
+  m_cursorY += dy;
+
   if (!m_eiPointer)
     return;
 
@@ -804,6 +843,9 @@ void EiComputer::onButtonEvent(ei_event *event)
   }
 
   m_buttons.set(buttonID, pressed);
+  if (buttonID == kButtonLeft && !pressed) {
+    dragprobe::stop();
+  }
 
   auto eventType = pressed ? EventTypes::PrimaryComputerButtonDown : EventTypes::PrimaryComputerButtonUp;
 
