@@ -998,3 +998,7 @@ Enabling this setting will disable the server config GUI.</string>
   <tabstop>sbHeartbeat</tabstop>
   <tabstop>cbRelativeMouseMoves</tabstop>
   <tabstop>tabWidget</tabstop>
+ </tabstops>
+ <resources/>
+ <connections/>
+</ui>
