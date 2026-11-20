@@ -998,3 +998,464 @@ bool XWindowsClipboard::sendReply(Reply *reply)
       // how much more data should we send?
       uint32_t size = reply->m_data.size() - reply->m_ptr;
       if (size > maxRequestSize)
+        size = maxRequestSize;
+
+      // send it
+      if (!XWindowsUtil::setWindowProperty(
+              m_display, reply->m_requestor, reply->m_property, reply->m_data.data() + reply->m_ptr, size,
+              reply->m_type, reply->m_format
+          )) {
+        failed = true;
+      } else {
+        reply->m_ptr += size;
+
+        // we've finished the reply if we just sent the zero
+        // size incremental chunk or if we're not incremental.
+        reply->m_done = (size == 0 || !useINCR);
+      }
+    }
+  }
+
+  // if we've failed then delete the property and say we're done.
+  // if we haven't replied yet then we can send a failure notify,
+  // otherwise we've failed in the middle of an incremental
+  // transfer;  i don't know how to cancel that so i'll just send
+  // the final zero-length property.
+  // FIXME -- how do you gracefully cancel an incremental transfer?
+  if (failed) {
+    LOG(
+        (CLOG_VERBOSE "clipboard: sending failure to 0x%08x,%d,%d", reply->m_requestor, reply->m_target,
+         reply->m_property)
+    );
+    reply->m_done = true;
+    if (reply->m_property != None) {
+      XWindowsUtil::ErrorLock lock(m_display);
+      XDeleteProperty(m_display, reply->m_requestor, reply->m_property);
+    }
+
+    if (!reply->m_replied) {
+      sendNotify(reply->m_requestor, m_selection, reply->m_target, None, reply->m_time);
+
+      // don't wait for any reply (because we're not expecting one)
+      return true;
+    } else {
+      static const char dummy = 0;
+      XWindowsUtil::setWindowProperty(
+          m_display, reply->m_requestor, reply->m_property, &dummy, 0, reply->m_type, reply->m_format
+      );
+
+      // wait for delete notify
+      return false;
+    }
+  }
+
+  // notification already sended
+  if (reply->m_replied) {
+    return false;
+  }
+
+  LOG_VERBOSE("clipboard: sending notify to 0x%08x,%d,%d", reply->m_requestor, reply->m_target, reply->m_property);
+  reply->m_replied = true;
+
+  // nothing to log
+  if (CLOG->getFilter() < LogLevel::Level::Verbose) {
+    sendNotify(
+        reply->m_requestor, m_selection, reply->m_target, reply->m_property, static_cast<unsigned int>(reply->m_time)
+    );
+
+    // wait for delete notify
+    return false;
+  }
+
+  // dump every property on the requestor window to the Trace
+  // log.  we've seen what appears to be a bug in lesstif and
+  // knowing the properties may help design a workaround, if
+  // it becomes necessary.
+  XWindowsUtil::ErrorLock lock(m_display);
+  int n;
+  Atom *props = XListProperties(m_display, reply->m_requestor, &n);
+  LOG_VERBOSE("properties of 0x%08x:", reply->m_requestor);
+  for (int i = 0; i < n; ++i) {
+    Atom target;
+    std::string data;
+    char *name = XGetAtomName(m_display, props[i]);
+    if (!XWindowsUtil::getWindowProperty(m_display, reply->m_requestor, props[i], &data, &target, nullptr, False)) {
+      LOG_VERBOSE("  %s: <can't read property>", name);
+    } else {
+      // convert to hex if contains non ascii symbols
+      if (std::ranges::find_if(data, [](const unsigned char &c) { return c < 32 || c > 126; }) != data.end()) {
+        const std::string hex_digits = "0123456789abcdef";
+        std::string tmp;
+        tmp.reserve(data.length() * 3);
+        std::ranges::for_each(data, [&hex_digits, &tmp](const unsigned char &c) {
+          tmp += hex_digits[c >> 16];
+          tmp += hex_digits[c & 15];
+          tmp += ' ';
+        });
+        data = tmp;
+      }
+      char *type = XGetAtomName(m_display, target);
+      LOG_VERBOSE("  %s (%s): %s", name, type, data.c_str());
+      if (type != nullptr) {
+        XFree(type);
+      }
+    }
+    if (name != nullptr) {
+      XFree(name);
+    }
+  }
+  if (props != nullptr) {
+    XFree(props);
+  }
+  sendNotify(reply->m_requestor, m_selection, reply->m_target, reply->m_property, reply->m_time);
+
+  // wait for delete notify
+  return false;
+}
+
+void XWindowsClipboard::clearReplies()
+{
+  for (auto index = m_replies.begin(); index != m_replies.end(); ++index) {
+    clearReplies(index->second);
+  }
+  m_replies.clear();
+  m_eventMasks.clear();
+}
+
+void XWindowsClipboard::clearReplies(ReplyList &replies)
+{
+  for (auto reply : replies) {
+    delete reply;
+  }
+  replies.clear();
+}
+
+void XWindowsClipboard::sendNotify(Window requestor, Atom selection, Atom target, Atom property, Time time)
+{
+  XEvent event;
+  event.xselection.type = SelectionNotify;
+  event.xselection.display = m_display;
+  event.xselection.requestor = requestor;
+  event.xselection.selection = selection;
+  event.xselection.target = target;
+  event.xselection.property = property;
+  event.xselection.time = time;
+  XWindowsUtil::ErrorLock lock(m_display);
+  XSendEvent(m_display, requestor, False, 0, &event);
+}
+
+bool XWindowsClipboard::wasOwnedAtTime(::Time time) const
+{
+  // not owned if we've never owned the selection
+  checkCache();
+  if (m_timeOwned == 0) {
+    return false;
+  }
+
+  // if time is CurrentTime then return true if we still own the
+  // selection and false if we do not.  else if we still own the
+  // selection then get the current time, otherwise use
+  // m_timeLost as the end time.
+  Time lost = m_timeLost;
+  if (m_timeLost == 0) {
+    if (time == CurrentTime) {
+      return true;
+    } else {
+      lost = XWindowsUtil::getCurrentTime(m_display, m_window);
+    }
+  } else {
+    if (time == CurrentTime) {
+      return false;
+    }
+  }
+
+  // compare time to range
+  Time duration = lost - m_timeOwned;
+  Time when = time - m_timeOwned;
+  return (/*when >= 0 &&*/ when <= duration);
+}
+
+Atom XWindowsClipboard::getTargetsData(std::string &data, int *format) const
+{
+  assert(format != nullptr);
+
+  // add standard targets
+  XWindowsUtil::appendAtomData(data, m_atomTargets);
+  XWindowsUtil::appendAtomData(data, m_atomMultiple);
+  XWindowsUtil::appendAtomData(data, m_atomTimestamp);
+
+  // File lists are exposed as a separate MIME type and never enter Deskflow's
+  // legacy text/HTML/bitmap clipboard serialization.
+  if (!m_fileUris.empty()) {
+    XWindowsUtil::appendAtomData(data, m_atomUriList);
+  }
+
+  // add targets we can convert to
+  for (auto index = m_converters.begin(); index != m_converters.end(); ++index) {
+    const IXWindowsClipboardConverter *converter = *index;
+
+    // skip formats we don't have
+    if (m_added[static_cast<int>(converter->getFormat())]) {
+      XWindowsUtil::appendAtomData(data, converter->getAtom());
+    }
+  }
+
+  *format = 32;
+  return m_atomAtom;
+}
+
+Atom XWindowsClipboard::getTimestampData(std::string &data, int *format) const
+{
+  assert(format != nullptr);
+
+  checkCache();
+  XWindowsUtil::appendTimeData(data, m_timeOwned);
+  *format = 32;
+  return m_atomInteger;
+}
+
+//
+// XWindowsClipboard::CICCCMGetClipboard
+//
+
+XWindowsClipboard::CICCCMGetClipboard::CICCCMGetClipboard(Window requestor, Time time, Atom property)
+    : m_requestor(requestor),
+      m_time(time),
+      m_property(property)
+{
+}
+
+bool XWindowsClipboard::CICCCMGetClipboard::readClipboard(
+    Display *display, Atom selection, Atom target, Atom *actualTarget, std::string *data
+)
+{
+  assert(actualTarget != nullptr);
+  assert(data != nullptr);
+
+  LOG((
+      CLOG_VERBOSE "request selection=%s, target=%s, window=%x", XWindowsUtil::atomToString(display, selection).c_str(),
+      XWindowsUtil::atomToString(display, target).c_str(), m_requestor
+  ));
+
+  m_atomNone = XInternAtom(display, "NONE", False);
+  m_atomIncr = XInternAtom(display, "INCR", False);
+
+  // save output pointers
+  m_actualTarget = actualTarget;
+  m_data = data;
+
+  // assume failure
+  *m_actualTarget = None;
+  *m_data = "";
+
+  // delete target property
+  XDeleteProperty(display, m_requestor, m_property);
+
+  // select window for property changes
+  XWindowAttributes attr;
+  XGetWindowAttributes(display, m_requestor, &attr);
+  XSelectInput(display, m_requestor, attr.your_event_mask | PropertyChangeMask);
+
+  // request data conversion
+  XConvertSelection(display, selection, target, m_property, m_requestor, m_time);
+
+  // synchronize with server before we start following timeout countdown
+  XSync(display, False);
+
+  // Xlib inexplicably omits the ability to wait for an event with
+  // a timeout.  (it's inexplicable because there's no portable way
+  // to do it.)  we'll poll until we have what we're looking for or
+  // a timeout expires.  we use a timeout so we don't get locked up
+  // by badly behaved selection owners.
+  XEvent xevent;
+  std::vector<XEvent> events;
+  Stopwatch timeout(false);             // timer not stopped, not triggered
+  static const double s_timeout = 0.25; // FIXME -- is this too short?
+  bool noWait = false;
+  while (!m_done && !m_failed) {
+    // fail if timeout has expired
+    if (timeout.getTime() >= s_timeout) {
+      m_failed = true;
+      break;
+    }
+
+    // process events if any otherwise sleep
+    if (noWait || XPending(display) > 0) {
+      while (!m_done && !m_failed && (noWait || XPending(display) > 0)) {
+        // fail if timeout has expired
+        if (timeout.getTime() >= s_timeout) {
+          m_failed = true;
+          break;
+        }
+
+        XNextEvent(display, &xevent);
+        if (!processEvent(display, &xevent)) {
+          // not processed so save it
+          events.push_back(xevent);
+        } else {
+          // reset timer since we've made some progress
+          timeout.reset();
+
+          // don't sleep anymore, just block waiting for events.
+          // we're assuming here that the clipboard owner will
+          // complete the protocol correctly.  if we continue to
+          // sleep we'll get very bad performance.
+          noWait = true;
+        }
+      }
+    } else {
+      Arch::sleep(0.01);
+    }
+  }
+
+  // put unprocessed events back
+  for (uint32_t i = events.size(); i > 0; --i) {
+    XPutBackEvent(display, &events[i - 1]);
+  }
+
+  // restore mask
+  XSelectInput(display, m_requestor, attr.your_event_mask);
+
+  // return success or failure
+  LOG_VERBOSE("request %s after %fs", m_failed ? "failed" : "succeeded", timeout.getTime());
+  return !m_failed;
+}
+
+bool XWindowsClipboard::CICCCMGetClipboard::processEvent(Display *display, const XEvent *xevent)
+{
+  // process event
+  switch (xevent->type) {
+  case DestroyNotify:
+    if (xevent->xdestroywindow.window == m_requestor) {
+      m_failed = true;
+      return true;
+    }
+
+    // not interested
+    return false;
+
+  case SelectionNotify:
+    if (xevent->xselection.requestor == m_requestor) {
+      // done if we can't convert
+      if (xevent->xselection.property == None || xevent->xselection.property == m_atomNone) {
+        m_done = true;
+        return true;
+      }
+
+      // proceed if conversion successful
+      else if (xevent->xselection.property == m_property) {
+        m_reading = true;
+        break;
+      }
+    }
+
+    // otherwise not interested
+    return false;
+
+  case PropertyNotify:
+    // proceed if conversion successful and we're receiving more data
+    if (xevent->xproperty.window == m_requestor && xevent->xproperty.atom == m_property &&
+        xevent->xproperty.state == PropertyNewValue) {
+      if (!m_reading) {
+        // we haven't gotten the SelectionNotify yet
+        return true;
+      }
+      break;
+    }
+
+    // otherwise not interested
+    return false;
+
+  default:
+    // not interested
+    return false;
+  }
+
+  // get the data from the property
+  Atom target;
+  const std::string::size_type oldSize = m_data->size();
+  if (!XWindowsUtil::getWindowProperty(display, m_requestor, m_property, m_data, &target, nullptr, True)) {
+    // unable to read property
+    m_failed = true;
+    return true;
+  }
+
+  // note if incremental.  if we're already incremental then the
+  // selection owner is busted.  if the INCR property has no size
+  // then the selection owner is busted.
+  if (target == m_atomIncr) {
+    if (m_incr || m_data->size() == oldSize) {
+      m_failed = true;
+      m_error = true;
+    } else {
+      m_incr = true;
+
+      // discard INCR data
+      *m_data = "";
+    }
+  }
+
+  // handle incremental chunks
+  else if (m_incr) {
+    // if first incremental chunk then save target
+    if (oldSize == 0) {
+      LOG_VERBOSE("  INCR first chunk, target %s", XWindowsUtil::atomToString(display, target).c_str());
+      *m_actualTarget = target;
+    }
+
+    // secondary chunks must have the same target
+    else {
+      if (target != *m_actualTarget) {
+        LOG_WARN("  INCR target mismatch");
+        m_failed = true;
+        m_error = true;
+      }
+    }
+
+    // note if this is the final chunk
+    if (m_data->size() == oldSize) {
+      LOG_VERBOSE("  INCR final chunk: %d bytes total", m_data->size());
+      m_done = true;
+    }
+  }
+
+  // not incremental;  save the target.
+  else {
+    LOG_VERBOSE("  target %s", XWindowsUtil::atomToString(display, target).c_str());
+    *m_actualTarget = target;
+    m_done = true;
+  }
+
+  // this event has been processed
+  LOGC(!m_incr, (CLOG_VERBOSE "  got data, %d bytes", m_data->size()));
+  return true;
+}
+
+//
+// XWindowsClipboard::Reply
+//
+
+XWindowsClipboard::Reply::Reply(Window requestor, Atom target, ::Time time)
+    : m_requestor(requestor),
+      m_target(target),
+      m_time(time),
+      m_property(None),
+      m_type(None),
+      m_format(32)
+{
+  // do nothing
+}
+
+XWindowsClipboard::Reply::Reply(
+    Window requestor, Atom target, ::Time time, Atom property, const std::string &data, Atom type, int format
+)
+    : m_requestor(requestor),
+      m_target(target),
+      m_time(time),
+      m_property(property),
+      m_data(data),
+      m_type(type),
+      m_format(format)
+{
+  // do nothing
+}
