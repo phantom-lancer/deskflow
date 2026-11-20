@@ -140,7 +140,9 @@ std::vector<std::string> fileUriListToPaths(const std::string &uris)
       continue;
     }
 
-    const auto path = url.toLocalFile();
+    // Qt preserves the authority prefix for file://localhost, yielding
+    // //localhost/path on Unix. Use the decoded URL path for that local alias.
+    const auto path = url.host().isEmpty() ? url.toLocalFile() : url.path(QUrl::FullyDecoded);
     if (!path.isEmpty() && QDir::isAbsolutePath(path)) {
       paths.push_back(path.toUtf8().toStdString());
     }

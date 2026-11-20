@@ -240,17 +240,27 @@ void FileTransferRouterTests::clipboardNotSentToDeskflowClient()
   QVERIFY(s.a.calls.empty());
 }
 
-void FileTransferRouterTests::clipboardNotSentToLinux()
+void FileTransferRouterTests::clipboardSentToLinux()
 {
   Setup s;
   s.router.onOffer(&s.a, FileTransferPurpose::Clipboard, joinPaths(kPaths));
   s.router.onEnter(&s.linuxClient);
-  QVERIFY(s.a.calls.empty());
+  QCOMPARE(s.a.calls.size(), size_t(1));
+  QCOMPARE(s.a.calls[0].what, std::string("request"));
+  QCOMPARE(s.a.calls[0].text, joinPaths(kPaths));
+  QCOMPARE(s.a.calls[0].number, uint32_t(FileTransferPurpose::Clipboard));
 
-  // dropped files do go to Linux
+  // The same clipboard offer is not resent on repeated enters.
+  s.router.onEnter(&s.linuxClient);
+  QCOMPARE(s.a.calls.size(), size_t(1));
+
+  // Dragged files use the same transport but a distinct purpose.
   s.router.onOffer(&s.a, FileTransferPurpose::Drop, joinPaths(kPaths));
   s.router.onDrop(&s.linuxClient);
-  QCOMPARE(s.a.calls.size(), size_t(1));
+  QCOMPARE(s.a.calls.size(), size_t(2));
+  QCOMPARE(s.a.calls[1].what, std::string("request"));
+  QCOMPARE(s.a.calls[1].text, joinPaths(kPaths));
+  QCOMPARE(s.a.calls[1].number, uint32_t(FileTransferPurpose::Drop));
 }
 
 void FileTransferRouterTests::newClipboardWithoutFilesClearsOffer()
