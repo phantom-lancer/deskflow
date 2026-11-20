@@ -1,0 +1,52 @@
+name: Temporary Hopflow file-transfer port
+
+on:
+  push:
+    branches:
+      - work/file-transfer
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hopflow-port-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  port:
+    if: ${{ !contains(github.event.head_commit.message, 'Port Hopflow file transfer') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout our Deskflow fork
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Apply only Hopflow file-transfer commits
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add hopflow https://github.com/Eyad-Alqaysi/hopflow.git
+          git fetch --no-tags hopflow main
+
+          commits=(
+            84a6153f95b18cb775ea432b16eea00c4ff77c8a
+            303affbfe151d0439cc4c4e0c9978cdbc42e35f9
+            7040b558bef8852bae8cc0a19288c74fe9a53c61
+            29464f521f0e4e4328137e1bcffaf3a4bf800608
+            11d25b76d160d0cad41702c6b8f1986dc0c34f54
+            b37283303daae4241c9f6d1bf1ee820fdbd3a7a6
+            4a5f31f12af33f04a9ad2f9132d5a09e27ef586c
+          )
+
+          for commit in "${commits[@]}"; do
+            echo "::group::Cherry-pick $commit"
+            git cherry-pick -x "$commit"
+            echo "::endgroup::"
+          done
+
+          git commit --allow-empty -m "Port Hopflow file transfer"
+          git push origin HEAD:work/file-transfer
