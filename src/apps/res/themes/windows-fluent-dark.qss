@@ -1,0 +1,20 @@
+/* SPDX-FileCopyrightText: (C) 2026 Deskflow Personal */
+QWidget { color: #e8ebf1; selection-background-color: #315f91; selection-color: #ffffff; font-size: 9pt; }
+QMainWindow, QDialog, QWidget#topLevelWidget, QTabWidget::pane { background: #20242b; }
+QMenuBar, QMenu { background: #252a32; color: #e8ebf1; border: 1px solid #383f49; }
+QMenu::item { padding: 6px 24px 6px 10px; border-radius: 4px; }
+QMenu::item:selected { background: #344458; }
+QGroupBox { background: #262b34; border: 1px solid #3b424d; border-radius: 7px; margin-top: 13px; padding: 12px 9px 9px 9px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; color: #bac5d3; }
+QPushButton, QToolButton { background: #303742; border: 1px solid #454e5b; border-radius: 5px; padding: 5px 11px; min-height: 20px; }
+QPushButton:hover, QToolButton:hover { background: #394555; border-color: #6489b5; }
+QPushButton:pressed, QToolButton:pressed { background: #262d37; }
+QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox { background: #191d23; color: #e8ebf1; border: 1px solid #424a57; border-radius: 5px; padding: 5px 7px; }
+QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus { border: 1px solid #6b9edb; }
+QTabBar::tab { background: #292e37; color: #b4becc; border: 1px solid #3b424d; padding: 7px 12px; margin-right: 3px; }
+QTabBar::tab:selected { background: #333d4b; color: #ffffff; border-bottom: 2px solid #6b9edb; }
+QListView, QTreeView, QTableView, QListWidget, QTreeWidget, QTableWidget { background: #1c2026; alternate-background-color: #242a33; border: 1px solid #3b424d; border-radius: 5px; gridline-color: #343c48; outline: 0; }
+QListView::item:selected, QTreeView::item:selected, QTableView::item:selected { background: #314e6e; }
+QHeaderView::section { background: #2c323c; color: #d0d7e0; border: 0; border-right: 1px solid #3b424d; border-bottom: 1px solid #3b424d; padding: 6px; }
+QCheckBox, QRadioButton { spacing: 7px; }
+QToolTip { background: #2b313b; color: #eef2f7; border: 1px solid #495466; padding: 5px; }

@@ -34,11 +34,13 @@
 #include "net/FingerprintDatabase.h"
 #include "widgets/StatusBar.h"
 
+#include <QApplication>
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDesktopServices>
 #include <QDir>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QLocalServer>
@@ -54,6 +56,7 @@
 #include <QRegularExpressionValidator>
 #include <QScreen>
 #include <QScrollBar>
+#include <QStyleFactory>
 #include <QSignalBlocker>
 
 #include <memory>
@@ -65,6 +68,38 @@
 using namespace deskflow::gui;
 
 namespace {
+
+void applyPlatformTheme()
+{
+#if defined(Q_OS_LINUX)
+  if (auto *fusion = QStyleFactory::create(QStringLiteral("Fusion"))) {
+    QApplication::setStyle(fusion);
+  }
+  QPalette palette;
+  palette.setColor(QPalette::Window, QColor(QStringLiteral("#181b21")));
+  palette.setColor(QPalette::WindowText, QColor(QStringLiteral("#e8ebf1")));
+  palette.setColor(QPalette::Base, QColor(QStringLiteral("#13161b")));
+  palette.setColor(QPalette::AlternateBase, QColor(QStringLiteral("#1e222a")));
+  palette.setColor(QPalette::Text, QColor(QStringLiteral("#e8ebf1")));
+  palette.setColor(QPalette::Button, QColor(QStringLiteral("#2a303a")));
+  palette.setColor(QPalette::ButtonText, QColor(QStringLiteral("#e8ebf1")));
+  palette.setColor(QPalette::Highlight, QColor(QStringLiteral("#326fbd")));
+  palette.setColor(QPalette::HighlightedText, Qt::white);
+  palette.setColor(QPalette::Disabled, QPalette::WindowText, QColor(QStringLiteral("#717b89")));
+  QApplication::setPalette(palette);
+  QFile theme(QStringLiteral(":/themes/linux-dark.qss"));
+  if (theme.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    QApplication::setStyleSheet(QString::fromUtf8(theme.readAll()));
+  }
+#elif defined(Q_OS_WIN)
+  const auto themePath = isDarkMode() ? QStringLiteral(":/themes/windows-fluent-dark.qss")
+                                      : QStringLiteral(":/themes/windows-fluent.qss");
+  QFile theme(themePath);
+  if (theme.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    QApplication::setStyleSheet(QString::fromUtf8(theme.readAll()));
+  }
+#endif
+}
 
 //! Show \p path selected in Finder or Explorer, or open its folder elsewhere
 void revealInFileManager(const QString &path)
@@ -111,6 +146,8 @@ MainWindow::MainWindow()
       m_networkMonitor{new NetworkMonitor(this)}
 {
   ui->setupUi(this);
+
+  applyPlatformTheme();
 
   setWindowIcon(QIcon::fromTheme(kRevFqdnName));
 
