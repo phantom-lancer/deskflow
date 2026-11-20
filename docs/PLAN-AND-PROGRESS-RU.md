@@ -100,7 +100,7 @@
 
 ```bash
 flatpak kill org.deskflow.deskflow
-sudo flatpak install --system --bundle --reinstall --assumeyes /home/diffuz/Deskflow-Personal-Backup/20261120-before-update/staging/deskflow-personal-linux-x86_64.flatpak
+sudo flatpak install --system --bundle --reinstall --assumeyes $HOME/Deskflow-Personal-Backup/20261120-before-update/staging/deskflow-personal-linux-x86_64.flatpak
 flatpak run --system org.deskflow.deskflow
 ```
 
