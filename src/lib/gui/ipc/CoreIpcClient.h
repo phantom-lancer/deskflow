@@ -10,6 +10,8 @@
 
 #include <QObject>
 
+#include <cstdint>
+
 namespace deskflow::gui::ipc {
 
 class CoreIpcClient : public IpcClient
@@ -21,6 +23,7 @@ public:
 
   void sendStop();
   void sendDraggedFiles(const QStringList &paths);
+  void sendDragFinished(uint32_t id);
 
 Q_SIGNALS:
   void commandReceived(const QString &command, const QString &args);

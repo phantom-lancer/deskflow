@@ -31,6 +31,7 @@
 #include "gui/ipc/DaemonIpcClient.h"
 #include "gui/widgets/DragProbeWindow.h"
 #include "gui/widgets/LogDock.h"
+#include "gui/widgets/NativeDragSource.h"
 #include "net/FingerprintDatabase.h"
 #include "widgets/StatusBar.h"
 
@@ -101,6 +102,7 @@ MainWindow::MainWindow()
       m_logDock{new LogDock(this)},
       // no parent: a window owned by the main window would be hidden with it in the tray
       m_dragProbe{new DragProbeWindow()},
+      m_nativeDrag{new NativeDragSource()},
       m_statusBar{new StatusBar(this)},
       m_menuFile{new QMenu(this)},
       m_menuEdit{new QMenu(this)},
@@ -205,6 +207,7 @@ MainWindow::MainWindow()
 MainWindow::~MainWindow()
 {
   delete m_dragProbe;
+  delete m_nativeDrag;
 
   // Stop network monitoring
   if (m_networkMonitor) {
@@ -231,9 +234,6 @@ void MainWindow::restoreWindow()
     QRect screenGeometry = QGuiApplication::primaryScreen()->geometry();
     move(screenGeometry.center() - rect().center());
   }
-
-  if (!Settings::value(Settings::Gui::LogExpanded).toBool())
-    setFixedSize(size());
 }
 
 void MainWindow::setupControls()
@@ -320,10 +320,12 @@ void MainWindow::connectSlots()
   connect(&m_coreProcess, &CoreProcess::peerFingerprint, this, &MainWindow::handlePeerFingerprint);
   connect(&m_coreProcess, &CoreProcess::missingKeyboardLayouts, this, &MainWindow::handleMissingKeyboardLayouts);
   connect(&m_coreProcess, &CoreProcess::filesReceived, this, &MainWindow::handleFilesReceived);
+  connect(&m_coreProcess, &CoreProcess::nativeDragReady, this, &MainWindow::handleNativeDragReady);
   connect(&m_coreProcess, &CoreProcess::fileTransferFailed, this, &MainWindow::handleFileTransferFailed);
   connect(&m_coreProcess, &CoreProcess::dragProbeRequested, m_dragProbe, &DragProbeWindow::probeAt);
   connect(&m_coreProcess, &CoreProcess::dragProbeEnded, m_dragProbe, &DragProbeWindow::stop);
   connect(m_dragProbe, &DragProbeWindow::filesDragged, &m_coreProcess, &CoreProcess::sendDraggedFiles);
+  m_nativeDrag->setFinishedCallback([this](uint32_t id) { m_coreProcess.sendDragFinished(id); });
 
   connect(ui->btnToggleCore, &QPushButton::clicked, m_actionStartCore, &QAction::trigger, Qt::UniqueConnection);
 
@@ -364,12 +366,10 @@ void MainWindow::toggleLogVisible(bool visible)
     return;
   }
 
-  setFixedSize(16777215, 16777215);
   Settings::setValue(Settings::Gui::LogExpanded, visible);
   if (visible) {
     if (m_logDock->isFloating()) {
       adjustSize();
-      setFixedSize(size());
     } else {
       QTimer::singleShot(15, this, [&] { resize(m_expandedSize); });
     }
@@ -381,7 +381,6 @@ void MainWindow::toggleLogVisible(bool visible)
     if (!m_logDock->isFloating()) {
       adjustSize();
     }
-    setFixedSize(size());
   }
   Settings::setValue(Settings::Gui::WindowGeometry, geometry());
 }
@@ -390,6 +389,13 @@ void MainWindow::settingsChanged(const QString &key)
 {
   if (key == Settings::Log::Level) {
     m_coreProcess.applyLogLevel();
+    return;
+  }
+
+  if (key == Settings::Gui::Theme) {
+    applyPlatformTheme();
+    updateIconTheme();
+    setTrayIcon();
     return;
   }
 
@@ -893,6 +899,23 @@ void MainWindow::handleFilesReceived(const QString &details)
   const auto folder = QDir::toNativeSeparators(QFileInfo(lines.first()).absolutePath());
   m_trayIcon->showMessage(kAppName, tr("Received %n item(s) in %1", "", count).arg(folder));
   revealInFileManager(lines.first());
+}
+
+void MainWindow::handleNativeDragReady(const QString &details)
+{
+  // first item is the transfer id, the rest are the staged files
+  auto lines = decodeIpcList(details);
+  if (lines.size() < 2) {
+    return;
+  }
+
+  bool ok = false;
+  const auto id = lines.takeFirst().toUInt(&ok);
+  if (!ok) {
+    return;
+  }
+
+  m_nativeDrag->start(id, lines);
 }
 
 void MainWindow::handleFileTransferFailed(const QString &message)

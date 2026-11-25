@@ -23,6 +23,16 @@ void notifyReceived(FileTransferPurpose purpose, const std::vector<std::string> 
   ipcSendToClient(QStringLiteral("filesReceived"), encodeIpcList(items));
 }
 
+void notifyDragReady(uint32_t id, const std::vector<std::string> &paths)
+{
+  // first item is the transfer id, the rest are the staged files to drag
+  QStringList items = {QString::number(id)};
+  for (const auto &path : paths) {
+    items.append(QString::fromStdString(path));
+  }
+  ipcSendToClient(QStringLiteral("dragReady"), encodeIpcList(items));
+}
+
 void notifyFailed(const std::string &message)
 {
   ipcSendToClient(QStringLiteral("fileTransferFailed"), encodeIpcList({QString::fromStdString(message)}));

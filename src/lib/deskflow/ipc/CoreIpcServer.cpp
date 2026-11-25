@@ -10,6 +10,7 @@
 #include "common/Constants.h"
 #include "common/IpcEncoding.h"
 #include "deskflow/DragProbe.h"
+#include "deskflow/FileTransferLocations.h"
 
 #include <QLocalSocket>
 
@@ -38,6 +39,17 @@ void CoreIpcServer::processCommand(QLocalSocket *clientSocket, const QString &co
     }
     LOG_DEBUG("core ipc server got %zu dragged files", paths.size());
     dragprobe::setFiles(paths);
+    return;
+  }
+
+  if (command == QStringLiteral("dragFinished")) {
+    bool ok = false;
+    const auto id = parts.value(1).toUInt(&ok);
+    if (ok) {
+      LOG_DEBUG("core ipc server releasing drag transfer %u", id);
+      deskflow::filetransfer::releaseDragTransfer(id);
+    }
+    writeToClientSocket(clientSocket, QStringLiteral("ok"));
     return;
   }
 

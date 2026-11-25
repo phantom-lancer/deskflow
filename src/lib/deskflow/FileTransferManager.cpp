@@ -174,6 +174,9 @@ void FileTransferManager::onStart(
 
   LOG_INFO("file transfer %u: receiving %s into %s", id, megabytes(bytes).c_str(), pathToUtf8(destination).c_str());
   m_incoming.insert_or_assign(id, Incoming{std::move(receiver), purpose, std::move(transport)});
+  if (m_callbacks.started) {
+    m_callbacks.started(id, purpose);
+  }
 }
 
 void FileTransferManager::onChunk(uint32_t id, const std::string &data)

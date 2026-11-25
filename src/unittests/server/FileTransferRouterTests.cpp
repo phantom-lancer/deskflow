@@ -434,6 +434,65 @@ void FileTransferRouterTests::dropOnSameComputerDoesNothing()
   QVERIFY(!s.router.isDragging(&s.a));
 }
 
+void FileTransferRouterTests::dragStartsTransferOnEnter()
+{
+  Setup s;
+  s.router.onOffer(&s.a, FileTransferPurpose::Drop, joinPaths(kPaths));
+
+  // the transfer must already be running while the button is still down
+  s.router.onEnter(&s.b);
+  QCOMPARE(s.a.calls.size(), size_t(1));
+  QCOMPARE(s.a.calls[0].what, std::string("request"));
+  QCOMPARE(s.a.calls[0].number, uint32_t(FileTransferPurpose::Drop));
+  QVERIFY(s.router.isDragging(&s.a));
+}
+
+void FileTransferRouterTests::dragRepeatedEnterDoesNotRestart()
+{
+  Setup s;
+  s.router.onOffer(&s.a, FileTransferPurpose::Drop, joinPaths(kPaths));
+  s.router.onEnter(&s.b);
+  s.router.onEnter(&s.b);
+  QCOMPARE(s.a.calls.size(), size_t(1));
+}
+
+void FileTransferRouterTests::dragLeavingTargetCancelsTransfer()
+{
+  Setup s;
+  s.router.onOffer(&s.a, FileTransferPurpose::Drop, joinPaths(kPaths));
+  s.router.onEnter(&s.b);
+  const auto firstId = requestedId(s.a);
+
+  // moving to another computer cancels the drag transfer it left
+  s.router.onEnter(&s.linuxClient);
+  QCOMPARE(s.a.calls.size(), size_t(3));
+  QCOMPARE(s.a.calls[0].what, std::string("request"));
+  QCOMPARE(s.a.calls[1].what, std::string("end"));
+  QCOMPARE(s.a.calls[1].id, firstId);
+  QCOMPARE(s.a.calls[2].what, std::string("request"));
+  QCOMPARE(s.a.calls[2].number, uint32_t(FileTransferPurpose::Drop));
+  QCOMPARE(s.b.calls.size(), size_t(1));
+  QCOMPARE(s.b.calls[0].what, std::string("end"));
+  QCOMPARE(s.b.calls[0].id, firstId);
+  QCOMPARE(s.b.calls[0].number, uint32_t(FileTransferStatus::Cancelled));
+}
+
+void FileTransferRouterTests::dragWithdrawnCancelsTransfer()
+{
+  Setup s;
+  s.router.onOffer(&s.a, FileTransferPurpose::Drop, joinPaths(kPaths));
+  s.router.onEnter(&s.b);
+  const auto id = requestedId(s.a);
+
+  // the source released its button before the cursor left it
+  s.router.onOffer(&s.a, FileTransferPurpose::Drop, {});
+  QCOMPARE(s.b.calls.size(), size_t(1));
+  QCOMPARE(s.b.calls[0].what, std::string("end"));
+  QCOMPARE(s.b.calls[0].id, id);
+  QCOMPARE(s.b.calls[0].number, uint32_t(FileTransferStatus::Cancelled));
+  QVERIFY(!s.router.isDragging(&s.a));
+}
+
 void FileTransferRouterTests::disconnectCancelsTransfer()
 {
   Setup s;

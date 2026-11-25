@@ -17,6 +17,8 @@
 #include <QProcess>
 #include <QTimer>
 
+#include <cstdint>
+
 namespace deskflow::gui {
 
 namespace ipc {
@@ -48,6 +50,7 @@ public:
   void clearSettings();
   void retryDaemon();
   void sendDraggedFiles(const QStringList &paths);
+  void sendDragFinished(uint32_t id);
 
   // getters
   Settings::CoreMode mode() const
@@ -96,6 +99,7 @@ Q_SIGNALS:
   void peerFingerprint(const QString &fingerprint);
   void missingKeyboardLayouts(const QString &layouts);
   void filesReceived(const QString &details);
+  void nativeDragReady(const QString &details);
   void dragProbeRequested(int x, int y);
   void dragProbeEnded();
   void fileTransferFailed(const QString &message);

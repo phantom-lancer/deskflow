@@ -32,6 +32,7 @@ class QLocalServer;
 class DeskflowApplication;
 class LogDock;
 class DragProbeWindow;
+class NativeDragSource;
 class StatusBar;
 
 namespace Ui {
@@ -122,6 +123,7 @@ private:
   void handlePeerFingerprint(const QString &fingerprint);
   void handleMissingKeyboardLayouts(const QString &layouts);
   void handleFilesReceived(const QString &details);
+  void handleNativeDragReady(const QString &details);
   void handleFileTransferFailed(const QString &message);
   void closeEvent(QCloseEvent *event) override;
   bool maybeHideToTray();
@@ -187,6 +189,7 @@ private:
 
   LogDock *m_logDock;
   DragProbeWindow *m_dragProbe;
+  NativeDragSource *m_nativeDrag;
   StatusBar *m_statusBar = nullptr;
 
   // Window Menu

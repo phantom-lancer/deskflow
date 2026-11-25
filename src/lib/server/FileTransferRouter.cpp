@@ -28,6 +28,7 @@ FileTransferRouter::FileTransferRouter(BaseClientProxy *primary, deskflow::Compu
           }
       )
 {
+  removeStaleDragTransfers();
 }
 
 FileTransferRouter::~FileTransferRouter() = default;
@@ -121,6 +122,8 @@ void FileTransferRouter::onDragFiles(BaseClientProxy *from, const std::vector<st
   if (paths.empty()) {
     if (m_drag.owner == from) {
       m_drag = {};
+      m_dropSeen = false;
+      cancelDropRoutes(from);
     }
     return;
   }
@@ -129,6 +132,13 @@ void FileTransferRouter::onDragFiles(BaseClientProxy *from, const std::vector<st
     LOG_INFO("\"%s\" is dragging %zu files", from->getName().c_str(), paths.size());
   }
   m_drag = Offer{from, paths, {}};
+  m_dropSeen = false;
+
+  // clients report their drag as the cursor leaves them, so it may already be
+  // on another computer that must start receiving before the user drops
+  if (m_active != nullptr && m_active != from) {
+    onEnter(m_active);
+  }
 }
 
 bool FileTransferRouter::isDragging(const BaseClientProxy *computer) const
@@ -139,14 +149,28 @@ bool FileTransferRouter::isDragging(const BaseClientProxy *computer) const
 void FileTransferRouter::onEnter(BaseClientProxy *computer)
 {
   m_active = computer;
-  auto &offer = m_clipboard;
-  if (!m_enabled || offer.owner == nullptr || offer.owner == computer || !canPasteFiles(computer) ||
-      offer.deliveredTo.contains(computer)) {
-    return;
+
+  // A drag only belongs to the computer under the pointer. Cancel transfers
+  // to computers the cursor left so they never start a stale native drag.
+  if (m_drag.owner != nullptr) {
+    cancelDropRoutesExcept(computer);
   }
 
-  offer.deliveredTo.insert(computer);
-  startTransfer(offer.owner, computer, FileTransferPurpose::Clipboard, offer.paths);
+  auto &offer = m_clipboard;
+  if (m_enabled && offer.owner != nullptr && offer.owner != computer && canPasteFiles(computer) &&
+      !offer.deliveredTo.contains(computer)) {
+    offer.deliveredTo.insert(computer);
+    startTransfer(offer.owner, computer, FileTransferPurpose::Clipboard, offer.paths);
+  }
+
+  auto &drag = m_drag;
+  if (m_enabled && drag.owner != nullptr && drag.owner != computer && canReceive(computer) &&
+      !drag.deliveredTo.contains(computer)) {
+    // Start receiving while the button is still down, so the destination can
+    // show its own native drag cursor and accept the drop in the application.
+    drag.deliveredTo.insert(computer);
+    startTransfer(drag.owner, computer, FileTransferPurpose::Drop, drag.paths);
+  }
 }
 
 void FileTransferRouter::onDrop(BaseClientProxy *computer)
@@ -156,6 +180,7 @@ void FileTransferRouter::onDrop(BaseClientProxy *computer)
   }
 
   const auto drag = std::exchange(m_drag, {});
+  m_dropSeen = true;
   if (!m_enabled || drag.owner == computer) {
     return;
   }
@@ -165,7 +190,11 @@ void FileTransferRouter::onDrop(BaseClientProxy *computer)
     return;
   }
 
-  startTransfer(drag.owner, computer, FileTransferPurpose::Drop, drag.paths);
+  // The transfer normally starts as the cursor enters, so the drop only has to
+  // finish it. This is the fallback for an offer that arrived after the enter.
+  if (!drag.deliveredTo.contains(computer)) {
+    startTransfer(drag.owner, computer, FileTransferPurpose::Drop, drag.paths);
+  }
 }
 
 void FileTransferRouter::startTransfer(
@@ -179,11 +208,59 @@ void FileTransferRouter::startTransfer(
       destination->getName().c_str()
   );
 
-  m_routes.insert_or_assign(id, Route{source, destination});
+  m_routes.insert_or_assign(id, Route{source, destination, purpose});
   if (source == m_primary) {
     m_local.send(id, purpose, paths, transportTo(destination));
   } else {
     source->fileRequest(id, purpose, joinPaths(paths));
+  }
+}
+
+void FileTransferRouter::cancelRoute(uint32_t id, const Route &route)
+{
+  // Stop the sender and release the receiver, whichever side is this computer.
+  if (route.source == m_primary) {
+    m_local.onEnd(id, FileTransferStatus::Cancelled);
+  } else {
+    route.source->fileEnd(id, FileTransferStatus::Cancelled);
+  }
+
+  if (route.destination == m_primary) {
+    m_local.onEnd(id, FileTransferStatus::Cancelled);
+  } else {
+    route.destination->fileEnd(id, FileTransferStatus::Cancelled);
+  }
+}
+
+void FileTransferRouter::cancelDropRoutes(BaseClientProxy *source)
+{
+  for (auto it = m_routes.begin(); it != m_routes.end();) {
+    if (it->second.purpose != FileTransferPurpose::Drop || it->second.source != source) {
+      ++it;
+      continue;
+    }
+
+    const auto [id, route] = *it;
+    it = m_routes.erase(it);
+    LOG_INFO("file transfer %u: cancelled, the drag ended", id);
+    cancelRoute(id, route);
+  }
+}
+
+void FileTransferRouter::cancelDropRoutesExcept(BaseClientProxy *destination)
+{
+  for (auto it = m_routes.begin(); it != m_routes.end();) {
+    if (it->second.purpose != FileTransferPurpose::Drop || it->second.destination == destination) {
+      ++it;
+      continue;
+    }
+
+    const auto [id, route] = *it;
+    it = m_routes.erase(it);
+    LOG_INFO("file transfer %u: cancelled, the cursor left the drag target", id);
+    // Forget the delivery so dragging back onto this computer starts it again.
+    m_drag.deliveredTo.erase(route.destination);
+    cancelRoute(id, route);
   }
 }
 
@@ -216,6 +293,16 @@ void FileTransferRouter::localReceived(FileTransferPurpose purpose, uint32_t id,
       LOG_WARN("this computer cannot put files on the clipboard");
     }
     removeOldClipboardTransfers(id);
+  } else if (purpose == FileTransferPurpose::Drop) {
+    // Start a native drag while the button is still down instead of revealing
+    // a permanent copy in Downloads. A transfer that finishes after the
+    // release is discarded.
+    if (!m_dropSeen) {
+      notifyDragReady(id, paths);
+    } else {
+      releaseDragTransfer(id);
+    }
+    return;
   }
   notifyReceived(purpose, paths);
 }

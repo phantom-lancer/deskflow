@@ -18,6 +18,7 @@
 #include "server/Config.h"
 
 #include <climits>
+#include <chrono>
 #include <map>
 #include <memory>
 #include <set>
@@ -225,6 +226,9 @@ private:
   // returns true iff mouse should be locked to the current m_computer
   // according to this object or the primary client.
   bool isLockedToComputer() const;
+
+  // returns true while game mode is on and a fullscreen game is active
+  bool isGameModeActive() const;
 
   // returns true if the active computer is dragging files
   bool isDraggingFiles() const;
@@ -475,6 +479,11 @@ private:
 
   // computer locking (former scroll lock)
   bool m_lockedToComputer = false;
+
+  // game mode keeps the cursor on this computer while a game is fullscreen
+  bool m_gameMode = false;
+  mutable bool m_gameModeFullscreen = false;
+  mutable std::chrono::steady_clock::time_point m_gameModeChecked{};
 
   bool m_defaultLockToComputerState = false;
   bool m_disableLockToComputer = false;

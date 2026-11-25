@@ -49,5 +49,7 @@ private:
   std::vector<std::string> m_offeredClipboard;
   //! Files offered as being dragged here, while the drag lasts
   std::vector<std::string> m_dragFiles;
+  //! A drag transfer is still being received and the button is still down
+  bool m_dragActive = false;
   int m_buttonsDown = 0;
 };

@@ -95,12 +95,16 @@ private:
   {
     BaseClientProxy *source;
     BaseClientProxy *destination;
+    FileTransferPurpose purpose;
   };
 
   void startTransfer(
       BaseClientProxy *source, BaseClientProxy *destination, FileTransferPurpose purpose,
       const std::vector<std::string> &paths
   );
+  void cancelRoute(uint32_t id, const Route &route);
+  void cancelDropRoutes(BaseClientProxy *source);
+  void cancelDropRoutesExcept(BaseClientProxy *destination);
   deskflow::filetransfer::Transport transportTo(BaseClientProxy *client);
   void endRoute(uint32_t id);
   void localReceived(FileTransferPurpose purpose, uint32_t id, const std::vector<std::string> &paths);
@@ -119,6 +123,8 @@ private:
   std::map<uint32_t, Route> m_routes;
   Offer m_clipboard;
   Offer m_drag;
+  //! True once the drag was released, so a late transfer does not start a drag
+  bool m_dropSeen = false;
   //! Where the cursor is, so an offer that arrives after it moved can still be delivered
   BaseClientProxy *m_active = nullptr;
   //! Files the server computer received for its clipboard, so they are not offered back

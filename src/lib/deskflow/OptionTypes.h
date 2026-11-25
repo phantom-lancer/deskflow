@@ -52,6 +52,7 @@ static const OptionID kOptionComputerSwitchTwoTap = OPTION_CODE("SSTT");
 static const OptionID kOptionXTestXineramaUnaware = OPTION_CODE("XTXU");
 static const OptionID kOptionComputerX11WeakFocus = OPTION_CODE("SFOC");
 static const OptionID kOptionRelativeMouseMoves = OPTION_CODE("MDLT");
+static const OptionID kOptionGameMode = OPTION_CODE("HGMD");
 static const OptionID kOptionWin32KeepForeground = OPTION_CODE("_KFW");
 static const OptionID kOptionDefaultLockToComputerState = OPTION_CODE("LTSS");
 static const OptionID kOptionDisableLockToComputer = OPTION_CODE("DLTS");

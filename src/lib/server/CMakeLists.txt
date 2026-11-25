@@ -46,6 +46,11 @@ add_library(server STATIC
 
 target_link_libraries(server PUBLIC common)
 
+if(WIN32)
+  # SHQueryUserNotificationState reports fullscreen games for Game mode
+  target_link_libraries(server PRIVATE shell32)
+endif()
+
 if(UNIX)
   target_link_libraries(server PUBLIC app)
 endif()

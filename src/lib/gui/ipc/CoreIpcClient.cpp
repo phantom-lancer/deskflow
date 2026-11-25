@@ -28,6 +28,11 @@ void CoreIpcClient::sendDraggedFiles(const QStringList &paths)
   sendMessage(QStringLiteral("draggedFiles=%1").arg(encodeIpcList(paths)));
 }
 
+void CoreIpcClient::sendDragFinished(uint32_t id)
+{
+  sendMessage(QStringLiteral("dragFinished=%1").arg(id));
+}
+
 void CoreIpcClient::processCommand(const QString &command, const QStringList &parts)
 {
   const auto args = parts.size() >= 2 ? parts.at(1) : QString();

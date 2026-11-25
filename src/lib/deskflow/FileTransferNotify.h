@@ -15,6 +15,8 @@
 namespace deskflow::filetransfer {
 
 void notifyReceived(FileTransferPurpose purpose, const std::vector<std::string> &paths);
+//! Ask the GUI to start a native drag-and-drop of the staged files
+void notifyDragReady(uint32_t id, const std::vector<std::string> &paths);
 void notifyFailed(const std::string &message);
 
 } // namespace deskflow::filetransfer

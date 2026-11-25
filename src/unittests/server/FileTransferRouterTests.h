@@ -31,6 +31,10 @@ private Q_SLOTS:
   void refusesTooLarge();
   void dropStartsTransfer();
   void dropOnSameComputerDoesNothing();
+  void dragStartsTransferOnEnter();
+  void dragRepeatedEnterDoesNotRestart();
+  void dragLeavingTargetCancelsTransfer();
+  void dragWithdrawnCancelsTransfer();
   void disconnectCancelsTransfer();
   void disabledDoesNothing();
 

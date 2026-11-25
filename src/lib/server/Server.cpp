@@ -27,8 +27,14 @@
 #include "server/PrimaryClient.h"
 
 #ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
 #include <algorithm>
 #include <array>
+#include <shellapi.h>
 #endif
 #include <cmath>
 #include <cstdlib>
@@ -367,6 +373,12 @@ bool Server::isLockedToComputerServer() const
 
 bool Server::isLockedToComputer() const
 {
+  // Game mode is independent of the scroll-lock lock and its disable switch:
+  // a fullscreen game must never lose the pointer to another computer.
+  if (isGameModeActive()) {
+    return true;
+  }
+
   if (m_disableLockToComputer) {
     return false;
   }
@@ -387,6 +399,30 @@ bool Server::isLockedToComputer() const
 
   // not locked
   return false;
+}
+
+bool Server::isGameModeActive() const
+{
+  if (!m_gameMode) {
+    return false;
+  }
+
+#ifdef _WIN32
+  // The shell reports UWP, fullscreen Direct3D and presentation windows. The
+  // call is cheap but not free, so ask at most once a second.
+  using clock = std::chrono::steady_clock;
+  const auto now = clock::now();
+  if (now - m_gameModeChecked >= std::chrono::seconds(1)) {
+    m_gameModeChecked = now;
+    QUERY_USER_NOTIFICATION_STATE state = QUNS_NOT_PRESENT;
+    const auto result = SHQueryUserNotificationState(&state);
+    m_gameModeFullscreen = SUCCEEDED(result) && (state == QUNS_RUNNING_D3D_FULL_SCREEN || state == QUNS_BUSY ||
+                                                 state == QUNS_PRESENTATION_MODE);
+  }
+  return m_gameModeFullscreen;
+#else
+  return false;
+#endif
 }
 
 bool Server::isDraggingFiles() const
@@ -1126,6 +1162,8 @@ void Server::processOptions()
       stopSwitchTwoTap();
     } else if (id == kOptionRelativeMouseMoves) {
       newRelativeMoves = (value != 0);
+    } else if (id == kOptionGameMode) {
+      m_gameMode = (value != 0);
     } else if (id == kOptionDefaultLockToComputerState) {
       m_defaultLockToComputerState = (value != 0);
     } else if (id == kOptionDisableLockToComputer) {

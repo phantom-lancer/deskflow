@@ -48,6 +48,14 @@ ServerProxyHopflow::ServerProxyHopflow(Client *client, deskflow::IStream *stream
       m_files(
           FileTransferManager::Callbacks{
               .destination = transferFolder,
+              .started =
+                  [this](uint32_t, FileTransferPurpose purpose) {
+                    if (purpose == FileTransferPurpose::Drop) {
+                      // The target receives no button press when a drag crosses
+                      // the edge, so remember that a drop transfer is in flight.
+                      m_dragActive = true;
+                    }
+                  },
               .received = [this](
                               uint32_t id, FileTransferPurpose purpose, const std::vector<std::string> &paths
                           ) { received(id, purpose, paths); },
@@ -55,6 +63,7 @@ ServerProxyHopflow::ServerProxyHopflow(Client *client, deskflow::IStream *stream
           }
       )
 {
+  removeStaleDragTransfers();
 }
 
 ServerProxyHopflow::~ServerProxyHopflow() = default;
@@ -121,6 +130,8 @@ void ServerProxyHopflow::onMouseButton(ButtonID, bool pressed)
 {
   m_buttonsDown = pressed ? m_buttonsDown + 1 : std::max(0, m_buttonsDown - 1);
   if (m_buttonsDown == 0) {
+    // a release here ends any drag offered to this computer
+    m_dragActive = false;
     if (!m_dragFiles.empty()) {
       // released here, so the drag never left this computer
       m_dragFiles.clear();
@@ -233,6 +244,17 @@ void ServerProxyHopflow::received(uint32_t id, FileTransferPurpose purpose, cons
       LOG_WARN("this computer cannot put files on the clipboard");
     }
     removeOldClipboardTransfers(id);
+  } else if (purpose == FileTransferPurpose::Drop) {
+    // Offer the staged files to the native drag-and-drop of the application
+    // under the pointer instead of leaving a copy in Downloads.
+    const auto stillDragging = m_dragActive;
+    m_dragActive = false;
+    if (stillDragging) {
+      notifyDragReady(id, paths);
+    } else {
+      releaseDragTransfer(id);
+    }
+    return;
   }
 
   notifyReceived(purpose, paths);

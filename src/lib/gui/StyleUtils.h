@@ -17,6 +17,9 @@
 #include <QStyleFactory>
 
 #include "common/Constants.h"
+#include "common/Settings.h"
+
+#include <QFile>
 
 namespace deskflow::gui {
 
@@ -42,43 +45,108 @@ inline QString iconMode()
   return isDarkMode() ? QStringLiteral("dark") : QStringLiteral("light");
 }
 
+enum class ThemeMode
+{
+  System,
+  Light,
+  Dark
+};
+
+//! Theme chosen in the settings; System follows the operating system
+inline ThemeMode themeMode()
+{
+  const auto value = Settings::value(Settings::Gui::Theme).toString();
+  if (value == QStringLiteral("light"))
+    return ThemeMode::Light;
+  if (value == QStringLiteral("dark"))
+    return ThemeMode::Dark;
+  return ThemeMode::System;
+}
+
+inline bool systemIsDark()
+{
+  // Ask the platform first: this keeps working after a custom palette is applied.
+  const auto scheme = QGuiApplication::styleHints()->colorScheme();
+  if (scheme != Qt::ColorScheme::Unknown)
+    return scheme == Qt::ColorScheme::Dark;
+
+  // Fall back to the palette; cache it before applyDeskflowTheme() replaces it.
+  static const bool dark = isDarkMode();
+  return dark;
+}
+
+inline bool isDarkTheme()
+{
+  const auto mode = themeMode();
+  if (mode == ThemeMode::Dark)
+    return true;
+  if (mode == ThemeMode::Light)
+    return false;
+  return systemIsDark();
+}
+
 inline void applyDeskflowTheme(QApplication &app)
 {
 #if defined(Q_OS_WIN)
-  // Keep the native Windows widget style; only tune spacing, surfaces and accent color.
+  const bool dark = isDarkTheme();
   QPalette palette = app.palette();
-  palette.setColor(QPalette::Window, QColor(QStringLiteral("#f5f6f7")));
-  palette.setColor(QPalette::WindowText, QColor(QStringLiteral("#1f2328")));
-  palette.setColor(QPalette::Base, QColor(QStringLiteral("#ffffff")));
-  palette.setColor(QPalette::AlternateBase, QColor(QStringLiteral("#f1f3f5")));
-  palette.setColor(QPalette::Text, QColor(QStringLiteral("#1f2328")));
-  palette.setColor(QPalette::Button, QColor(QStringLiteral("#f4f5f6")));
-  palette.setColor(QPalette::ButtonText, QColor(QStringLiteral("#1f2328")));
-  palette.setColor(QPalette::Highlight, QColor(QStringLiteral("#0067c0")));
-  palette.setColor(QPalette::HighlightedText, QColor(QStringLiteral("#ffffff")));
-  palette.setColor(QPalette::Link, QColor(QStringLiteral("#0067c0")));
+  if (dark) {
+    palette.setColor(QPalette::Window, QColor(QStringLiteral("#20242b")));
+    palette.setColor(QPalette::WindowText, QColor(QStringLiteral("#e8ebf1")));
+    palette.setColor(QPalette::Base, QColor(QStringLiteral("#1c2026")));
+    palette.setColor(QPalette::AlternateBase, QColor(QStringLiteral("#242a33")));
+    palette.setColor(QPalette::ToolTipBase, QColor(QStringLiteral("#2b313b")));
+    palette.setColor(QPalette::ToolTipText, QColor(QStringLiteral("#eef2f7")));
+    palette.setColor(QPalette::Text, QColor(QStringLiteral("#e8ebf1")));
+    palette.setColor(QPalette::Button, QColor(QStringLiteral("#303742")));
+    palette.setColor(QPalette::ButtonText, QColor(QStringLiteral("#e8ebf1")));
+    palette.setColor(QPalette::Light, QColor(QStringLiteral("#3a424e")));
+    palette.setColor(QPalette::Midlight, QColor(QStringLiteral("#333a44")));
+    palette.setColor(QPalette::Mid, QColor(QStringLiteral("#2a3039")));
+    palette.setColor(QPalette::Dark, QColor(QStringLiteral("#161a1f")));
+    palette.setColor(QPalette::Shadow, QColor(QStringLiteral("#101317")));
+    palette.setColor(QPalette::BrightText, QColor(QStringLiteral("#ffffff")));
+    palette.setColor(QPalette::Highlight, QColor(QStringLiteral("#315f91")));
+    palette.setColor(QPalette::HighlightedText, QColor(QStringLiteral("#ffffff")));
+    palette.setColor(QPalette::Link, QColor(QStringLiteral("#6b9edb")));
+    palette.setColor(QPalette::PlaceholderText, QColor(QStringLiteral("#8a93a0")));
+    palette.setColor(QPalette::Disabled, QPalette::WindowText, QColor(QStringLiteral("#7c8590")));
+    palette.setColor(QPalette::Disabled, QPalette::Text, QColor(QStringLiteral("#7c8590")));
+    palette.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(QStringLiteral("#7c8590")));
+  } else {
+    palette.setColor(QPalette::Window, QColor(QStringLiteral("#f5f6f8")));
+    palette.setColor(QPalette::WindowText, QColor(QStringLiteral("#20242b")));
+    palette.setColor(QPalette::Base, QColor(QStringLiteral("#ffffff")));
+    palette.setColor(QPalette::AlternateBase, QColor(QStringLiteral("#f6f8fa")));
+    palette.setColor(QPalette::ToolTipBase, QColor(QStringLiteral("#fffefb")));
+    palette.setColor(QPalette::ToolTipText, QColor(QStringLiteral("#20242b")));
+    palette.setColor(QPalette::Text, QColor(QStringLiteral("#20242b")));
+    palette.setColor(QPalette::Button, QColor(QStringLiteral("#ffffff")));
+    palette.setColor(QPalette::ButtonText, QColor(QStringLiteral("#20242b")));
+    palette.setColor(QPalette::Light, QColor(QStringLiteral("#ffffff")));
+    palette.setColor(QPalette::Midlight, QColor(QStringLiteral("#eceff3")));
+    palette.setColor(QPalette::Mid, QColor(QStringLiteral("#d7dbe1")));
+    palette.setColor(QPalette::Dark, QColor(QStringLiteral("#b9bfc8")));
+    palette.setColor(QPalette::Shadow, QColor(QStringLiteral("#9aa1aa")));
+    palette.setColor(QPalette::BrightText, QColor(QStringLiteral("#ffffff")));
+    palette.setColor(QPalette::Highlight, QColor(QStringLiteral("#2878c8")));
+    palette.setColor(QPalette::HighlightedText, QColor(QStringLiteral("#ffffff")));
+    palette.setColor(QPalette::Link, QColor(QStringLiteral("#2878c8")));
+    palette.setColor(QPalette::PlaceholderText, QColor(QStringLiteral("#6b7280")));
+    palette.setColor(QPalette::Disabled, QPalette::WindowText, QColor(QStringLiteral("#8c949f")));
+    palette.setColor(QPalette::Disabled, QPalette::Text, QColor(QStringLiteral("#8c949f")));
+    palette.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(QStringLiteral("#8c949f")));
+  }
   app.setPalette(palette);
-  app.setStyleSheet(QStringLiteral(R"(
-    QPushButton {
-      min-height: 28px; padding: 5px 14px; border: 1px solid #d2d7df;
-      border-radius: 6px; background: #f7f8fa; color: #1f2328;
-    }
-    QPushButton:hover { background: #eceff3; border-color: #b7c0cb; }
-    QPushButton:pressed { background: #e2e7ed; }
-    QPushButton:default { background: #0067c0; border-color: #0067c0; color: white; }
-    QPushButton:default:hover { background: #0875d1; }
-    QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
-      min-height: 26px; padding: 2px 8px; border: 1px solid #c5cbd3;
-      border-radius: 6px; background: white; color: #1f2328;
-    }
-    QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {
-      border: 1px solid #0067c0;
-    }
-    QTabBar::tab { padding: 8px 15px; border: none; border-bottom: 2px solid transparent; }
-    QTabBar::tab:selected { border-bottom-color: #0067c0; }
-    QGroupBox { margin-top: 12px; padding: 10px; border: 1px solid #d9dde3; border-radius: 8px; }
-    QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; }
-  )"));
+
+  // Keep the native Windows widget style; the stylesheet only tunes surfaces,
+  // spacing and the accent color, as Windows 11 Fluent does.
+  QFile themeFile(
+      dark ? QStringLiteral(":/themes/windows-fluent-dark.qss") : QStringLiteral(":/themes/windows-fluent.qss")
+  );
+  if (themeFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    app.setStyleSheet(QString::fromUtf8(themeFile.readAll()));
+  }
 #elif defined(Q_OS_UNIX) && !defined(Q_OS_MACOS)
   // Fusion with a restrained dark palette is consistent across XFCE and KDE,
   // and does not add any runtime process, animation or rendering dependency.

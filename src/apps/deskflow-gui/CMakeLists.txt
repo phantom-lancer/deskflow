@@ -75,6 +75,7 @@ if(WIN32)
       --no-system-d3d-compiler
       --no-opengl-sw
       --no-quick-import
+      --translations ru
       --dir "${QT_DEPENDS_DIR}"
       --plugindir "${QT_DEPENDS_DIR}/plugins"
       $<TARGET_FILE:${target}>

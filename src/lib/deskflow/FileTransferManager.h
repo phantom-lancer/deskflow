@@ -40,6 +40,8 @@ public:
   {
     //! Folder to receive a transfer into
     std::function<std::filesystem::path(FileTransferPurpose, uint32_t id)> destination;
+    //! An incoming transfer was accepted and is now receiving data
+    std::function<void(uint32_t id, FileTransferPurpose)> started;
     //! Files of a transfer arrived and were moved into place
     std::function<void(uint32_t id, FileTransferPurpose, const std::vector<std::string> &paths)> received;
     //! A transfer failed or was refused; \p message is for the user

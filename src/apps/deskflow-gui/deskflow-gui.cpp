@@ -119,9 +119,11 @@ int main(int argc, char *argv[])
     return s_exitDuplicate;
   }
 
-  if (!deskflow::platform::isMac() && qEnvironmentVariable("XDG_CURRENT_DESKTOP") != QLatin1String("KDE")) {
-    QApplication::setStyle("fusion");
-  }
+  // Applies the Windows Fluent theme or the Linux dark Fusion theme before any
+  // window opens. Keeping the native Windows style avoids a foreign look.
+  // Resolve the system light/dark choice before any custom palette replaces it.
+  (void)systemIsDark();
+  applyDeskflowTheme(app);
 
   // Sets the fallback icon path and fallback theme
   updateIconTheme();

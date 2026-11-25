@@ -1177,6 +1177,26 @@ Enabling this setting will disable the server config GUI.</source>
         <translation>Монохромный</translation>
     </message>
     <message>
+        <source>Theme</source>
+        <translation>Тема</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation>Системная</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>Светлая</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>Тёмная</translation>
+    </message>
+    <message>
+        <source>Stay on this computer while a fullscreen game is active (Game mode)</source>
+        <translation>Оставаться на этом компьютере, пока игра работает в полноэкранном режиме (игровой режим)</translation>
+    </message>
+    <message>
         <source>Enable TLS Encryption</source>
         <translation>Включить шифрование TLS</translation>
     </message>

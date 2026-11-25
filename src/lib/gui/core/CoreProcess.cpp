@@ -671,6 +671,8 @@ void CoreProcess::onCoreIpcMessageReceived(const QString &command, const QString
     Q_EMIT dragProbeEnded();
   } else if (command == "filesReceived") {
     Q_EMIT filesReceived(args);
+  } else if (command == "dragReady") {
+    Q_EMIT nativeDragReady(args);
   } else if (command == "fileTransferFailed") {
     Q_EMIT fileTransferFailed(args);
   }
@@ -683,6 +685,14 @@ void CoreProcess::sendDraggedFiles(const QStringList &paths)
     return;
   }
   m_coreIpcClient->sendDraggedFiles(paths);
+}
+
+void CoreProcess::sendDragFinished(uint32_t id)
+{
+  if (m_coreIpcClient == nullptr || !m_coreIpcClient->isConnected()) {
+    return;
+  }
+  m_coreIpcClient->sendDragFinished(id);
 }
 
 bool CoreProcess::checkSecureSocket(const QString &line)

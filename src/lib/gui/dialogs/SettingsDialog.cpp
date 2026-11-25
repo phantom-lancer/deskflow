@@ -22,6 +22,8 @@
 #include <QFileDialog>
 #include <QMessageBox>
 
+#include <algorithm>
+
 using namespace deskflow::gui;
 
 SettingsDialog::SettingsDialog(QWidget *parent, const ServerConfig &serverConfig)
@@ -43,6 +45,21 @@ SettingsDialog::SettingsDialog(QWidget *parent, const ServerConfig &serverConfig
   I18N::reDetectLanguages();
   ui->comboLanguage->addItems(I18N::detectedLanguages());
   ui->comboLanguage->setCurrentText(I18N::toNativeName(I18N::currentLanguage()));
+
+  // System follows the Windows light/dark setting
+  ui->comboTheme->addItem(tr("System"), QStringLiteral("system"));
+  ui->comboTheme->addItem(tr("Light"), QStringLiteral("light"));
+  ui->comboTheme->addItem(tr("Dark"), QStringLiteral("dark"));
+  ui->comboTheme->setCurrentIndex(
+      std::max(0, ui->comboTheme->findData(Settings::value(Settings::Gui::Theme).toString()))
+  );
+#if !defined(Q_OS_WIN)
+  // the Fluent stylesheets are Windows-only; Linux keeps its dark Fusion theme
+  ui->lblTheme->setVisible(false);
+  ui->comboTheme->setVisible(false);
+  // fullscreen-game detection uses the Windows shell
+  ui->cbGameMode->setVisible(false);
+#endif
 
   updateText();
 
@@ -78,8 +95,6 @@ SettingsDialog::SettingsDialog(QWidget *parent, const ServerConfig &serverConfig
 
   adjustSize();
   QApplication::processEvents();
-  setFixedHeight(height());
-  setWindowFlags((windowFlags() | Qt::CustomizeWindowHint) & ~Qt::WindowMinMaxButtonsHint);
 
   setButtonBoxEnabledButtons();
   initConnections();
@@ -125,8 +140,10 @@ void SettingsDialog::initConnections() const
   connect(ui->comboInterface, &QComboBox::currentIndexChanged, this, &SettingsDialog::setButtonBoxEnabledButtons);
   connect(ui->comboTlsKeyLength, &QComboBox::currentIndexChanged, this, &SettingsDialog::setButtonBoxEnabledButtons);
   connect(ui->comboLanguage, &QComboBox::currentIndexChanged, this, &SettingsDialog::setButtonBoxEnabledButtons);
+  connect(ui->comboTheme, &QComboBox::currentIndexChanged, this, &SettingsDialog::setButtonBoxEnabledButtons);
   connect(ui->rbAutoHide, &QRadioButton::toggled, this, &SettingsDialog::setButtonBoxEnabledButtons);
   connect(ui->cbPreventSleep, &QCheckBox::toggled, this, &SettingsDialog::setButtonBoxEnabledButtons);
+  connect(ui->cbGameMode, &QCheckBox::toggled, this, &SettingsDialog::setButtonBoxEnabledButtons);
   connect(ui->rbCloseToTray, &QRadioButton::toggled, this, &SettingsDialog::setButtonBoxEnabledButtons);
   connect(ui->cbElevateDaemon, &QCheckBox::toggled, this, &SettingsDialog::setButtonBoxEnabledButtons);
   connect(ui->cbAutoUpdate, &QCheckBox::toggled, this, &SettingsDialog::setButtonBoxEnabledButtons);
@@ -229,6 +246,7 @@ void SettingsDialog::accept()
   Settings::setValue(Settings::Gui::Autohide, ui->rbAutoHide->isChecked());
   Settings::setValue(Settings::Gui::AutoUpdateCheck, ui->cbAutoUpdate->isChecked());
   Settings::setValue(Settings::Core::PreventSleep, ui->cbPreventSleep->isChecked());
+  Settings::setValue(Settings::Server::GameMode, ui->cbGameMode->isChecked());
   Settings::setValue(Settings::Security::Certificate, ui->lineTlsCertPath->text());
   Settings::setValue(Settings::Security::KeySize, ui->comboTlsKeyLength->currentText().toInt());
   Settings::setValue(Settings::Security::TlsEnabled, ui->groupSecurity->isChecked());
@@ -238,6 +256,7 @@ void SettingsDialog::accept()
   Settings::setValue(Settings::Core::Language, I18N::nativeTo639Name(ui->comboLanguage->currentText()));
   Settings::setValue(Settings::Log::GuiDebug, ui->cbGuiDebug->isChecked());
   Settings::setValue(Settings::Gui::ShowVersionInTitle, ui->cbShowVersion->isChecked());
+  Settings::setValue(Settings::Gui::Theme, ui->comboTheme->currentData().toString());
   Settings::setValue(Settings::Core::EnableEnterCommand, ui->cbRunEnterCommand->isChecked());
   Settings::setValue(Settings::Core::EnableExitCommand, ui->cbRunExitCommand->isChecked());
   Settings::setValue(Settings::Core::ComputerEnterCommand, ui->lineCommandEnter->text());
@@ -262,10 +281,14 @@ void SettingsDialog::loadFromConfig()
   ui->groupLogToFile->setChecked(Settings::value(Settings::Log::ToFile).toBool());
   ui->lineLogFilename->setText(Settings::value(Settings::Log::File).toString());
   ui->cbPreventSleep->setChecked(Settings::value(Settings::Core::PreventSleep).toBool());
+  ui->cbGameMode->setChecked(Settings::value(Settings::Server::GameMode).toBool());
   ui->cbElevateDaemon->setChecked(Settings::value(Settings::Daemon::Elevate).toBool());
   ui->cbAutoUpdate->setChecked(Settings::value(Settings::Gui::AutoUpdateCheck).toBool());
   ui->cbGuiDebug->setChecked(Settings::value(Settings::Log::GuiDebug).toBool());
   ui->cbShowVersion->setChecked(Settings::value(Settings::Gui::ShowVersionInTitle).toBool());
+  ui->comboTheme->setCurrentIndex(
+      std::max(0, ui->comboTheme->findData(Settings::value(Settings::Gui::Theme).toString()))
+  );
   ui->cbRunEnterCommand->setChecked(Settings::value(Settings::Core::EnableEnterCommand).toBool());
   ui->cbRunExitCommand->setChecked(Settings::value(Settings::Core::EnableExitCommand).toBool());
   ui->lineCommandEnter->setText(Settings::value(Settings::Core::ComputerEnterCommand).toString());
@@ -373,6 +396,8 @@ void SettingsDialog::updateControls()
   ui->comboLogLevel->setEnabled(writable);
   ui->groupLogToFile->setEnabled(writable);
   ui->comboLanguage->setEnabled(writable);
+  ui->comboTheme->setEnabled(writable);
+  ui->cbGameMode->setEnabled(writable);
   ui->cbShowVersion->setEnabled(writable);
   ui->cbGuiDebug->setEnabled(writable);
   ui->rbIconColorful->setEnabled(writable);
@@ -429,11 +454,13 @@ bool SettingsDialog::isModified() const
       (ui->lineLogFilename->text() != Settings::value(Settings::Log::File).toString()) ||
       (ui->rbAutoHide->isChecked() != Settings::value(Settings::Gui::Autohide).toBool()) ||
       (ui->cbPreventSleep->isChecked() != Settings::value(Settings::Core::PreventSleep).toBool()) ||
+      (ui->cbGameMode->isChecked() != Settings::value(Settings::Server::GameMode).toBool()) ||
       (ui->rbCloseToTray->isChecked() != Settings::value(Settings::Gui::CloseToTray).toBool()) ||
       (ui->cbElevateDaemon->isChecked() != Settings::value(Settings::Daemon::Elevate).toBool()) ||
       (ui->cbAutoUpdate->isChecked() != Settings::value(Settings::Gui::AutoUpdateCheck).toBool()) ||
       (ui->cbGuiDebug->isChecked() != Settings::value(Settings::Log::GuiDebug).toBool()) ||
       (ui->cbShowVersion->isChecked() != Settings::value(Settings::Gui::ShowVersionInTitle).toBool()) ||
+      (ui->comboTheme->currentData().toString() != Settings::value(Settings::Gui::Theme).toString()) ||
       (ui->rbIconMono->isChecked() != Settings::value(Settings::Gui::SymbolicTrayIcon).toBool()) ||
       (ui->groupService->isChecked() != (processMode == Settings::ProcessMode::Service)) ||
       (ui->lineTlsCertPath->text() != Settings::value(Settings::Security::Certificate).toString()) ||
@@ -464,11 +491,13 @@ bool SettingsDialog::isDefault() const
       (ui->lineLogFilename->text() == Settings::defaultValue(Settings::Log::File).toString()) &&
       (ui->rbAutoHide->isChecked() == Settings::defaultValue(Settings::Gui::Autohide).toBool()) &&
       (ui->cbPreventSleep->isChecked() == Settings::defaultValue(Settings::Core::PreventSleep).toBool()) &&
+      (ui->cbGameMode->isChecked() == Settings::defaultValue(Settings::Server::GameMode).toBool()) &&
       (ui->rbCloseToTray->isChecked() == Settings::defaultValue(Settings::Gui::CloseToTray).toBool()) &&
       (ui->cbElevateDaemon->isChecked() == Settings::defaultValue(Settings::Daemon::Elevate).toBool()) &&
       (ui->cbAutoUpdate->isChecked() == Settings::defaultValue(Settings::Gui::AutoUpdateCheck).toBool()) &&
       (ui->cbGuiDebug->isChecked() == Settings::defaultValue(Settings::Log::GuiDebug).toBool()) &&
       (ui->cbShowVersion->isChecked() == Settings::defaultValue(Settings::Gui::ShowVersionInTitle).toBool()) &&
+      (ui->comboTheme->currentData().toString() == Settings::defaultValue(Settings::Gui::Theme).toString()) &&
       (ui->rbIconMono->isChecked() == Settings::defaultValue(Settings::Gui::SymbolicTrayIcon).toBool()) &&
       (ui->groupService->isChecked() == (processMode == Settings::ProcessMode::Service)) &&
       (ui->comboInterface->currentIndex() == 0) &&
@@ -480,7 +509,8 @@ bool SettingsDialog::isDefault() const
       (ui->lineCommandExit->text() == Settings::defaultValue(Settings::Core::ComputerExitCommand).toString()) &&
       (ui->cbRunEnterCommand->isChecked() == Settings::defaultValue(Settings::Core::EnableEnterCommand).toBool()) &&
       (ui->cbRunExitCommand->isChecked() == Settings::defaultValue(Settings::Core::EnableExitCommand).toBool()) &&
-      (ui->comboLanguage->currentText() == "English")
+      (ui->comboLanguage->currentText() ==
+       I18N::toNativeName(Settings::defaultValue(Settings::Core::Language).toString()))
   );
 }
 
@@ -493,10 +523,17 @@ void SettingsDialog::resetToDefault()
   ui->groupLogToFile->setChecked(Settings::defaultValue(Settings::Log::ToFile).toBool());
   ui->lineLogFilename->setText(Settings::defaultValue(Settings::Log::File).toString());
   ui->cbPreventSleep->setChecked(Settings::defaultValue(Settings::Core::PreventSleep).toBool());
+  ui->cbGameMode->setChecked(Settings::defaultValue(Settings::Server::GameMode).toBool());
   ui->cbElevateDaemon->setChecked(Settings::defaultValue(Settings::Daemon::Elevate).toBool());
   ui->cbAutoUpdate->setChecked(Settings::defaultValue(Settings::Gui::AutoUpdateCheck).toBool());
   ui->cbGuiDebug->setChecked(Settings::defaultValue(Settings::Log::GuiDebug).toBool());
   ui->cbShowVersion->setChecked(Settings::defaultValue(Settings::Gui::ShowVersionInTitle).toBool());
+  ui->comboTheme->setCurrentIndex(
+      ui->comboTheme->findData(Settings::defaultValue(Settings::Gui::Theme).toString())
+  );
+  ui->comboLanguage->setCurrentIndex(ui->comboLanguage->findText(
+      I18N::toNativeName(Settings::defaultValue(Settings::Core::Language).toString())
+  ));
   ui->cbRunEnterCommand->setChecked(Settings::defaultValue(Settings::Core::EnableEnterCommand).toBool());
   ui->cbRunExitCommand->setChecked(Settings::defaultValue(Settings::Core::EnableExitCommand).toBool());
   ui->lineCommandEnter->setText(Settings::defaultValue(Settings::Core::ComputerEnterCommand).toString());
