@@ -1,38 +1,44 @@
 # Deskflow Personal
 
-Персональная сборка [Deskflow](https://github.com/deskflow/deskflow) для совместного использования клавиатуры и мыши между компьютерами Windows и Linux.
+Форк Deskflow с дополнительными функциями для Windows и Linux.
 
-## Возможности
+Deskflow позволяет управлять несколькими компьютерами одной клавиатурой и мышью. В этой сборке также есть передача файлов, медиаклавиши и русифицированный интерфейс.
 
-- Передача файлов через буфер обмена и перетаскивание между компьютерами.
-- Медиаклавиши F6 / F7 / F8 с выбором получателей.
+## Скачать
+
+**[Последний стабильный релиз](https://github.com/phantom-lancer/deskflow/releases/latest)**
+
+- Windows 10/11, x64: установщик MSI.
+- Linux, x86_64: пакет Flatpak.
+
+Контрольные суммы файлов находятся в `SHA256SUMS.txt` в составе релиза.
+
+## Что добавлено
+
+- Передача файлов между компьютерами через буфер обмена и перетаскивание.
+- Медиаклавиши F6, F7 и F8 с выбором компьютера-получателя.
 - Русский интерфейс.
 - Windows: темы System, Light и Dark.
+- Windows: Game Mode для удержания курсора в полноэкранной игре.
 - Linux: тёмная тема и изменяемый размер окна.
-- Windows: необязательный Game Mode для удержания курсора в полноэкранной игре.
-
-## Загрузка
-
-Последняя стабильная сборка: [GitHub Releases](https://github.com/phantom-lancer/deskflow/releases/latest).
-
-- Windows x64 - MSI.
-- Linux x86_64 - Flatpak.
 
 ## Совместимость
 
-Для передачи файлов обе стороны должны использовать Deskflow Personal с протоколом Hopflow 1.100. Обычная сборка Deskflow этот протокол не поддерживает.
+Для передачи файлов обе стороны должны использовать Deskflow Personal с протоколом Hopflow 1.100. Стандартная сборка Deskflow с ним несовместима.
 
-Файловый обмен и нативный drag-and-drop в Linux рассчитаны на X11. На Wayland передача файлов через URI и нативный drop пока не поддерживаются.
+В Linux передача файлов и нативное перетаскивание работают в X11. Wayland пока не поддерживается для этих функций.
 
-Подробности: [DESKFLOW-CUSTOM.md](DESKFLOW-CUSTOM.md).
+При перетаскивании дождитесь завершения передачи файла до отпускания кнопки мыши.
 
 ## Сборка
 
-Windows MSI, Linux и Flatpak собираются через [GitHub Actions](https://github.com/phantom-lancer/deskflow/actions).
+Сборки Windows MSI и Linux Flatpak создаются через [GitHub Actions](https://github.com/phantom-lancer/deskflow/actions).
 
-## Основа
+## Исходный проект
 
 - [Deskflow](https://github.com/deskflow/deskflow)
-- [Hopflow](https://github.com/Eyad-Alqaysi/hopflow) - файловый транспорт
+- [Hopflow](https://github.com/Eyad-Alqaysi/hopflow)
 
-Лицензии и авторские заголовки исходных компонентов сохранены.
+Проект основан на Deskflow. Лицензии и авторские заголовки исходных компонентов сохранены.
+
+Подробное описание изменений и ограничений: [DESKFLOW-CUSTOM.md](DESKFLOW-CUSTOM.md).
