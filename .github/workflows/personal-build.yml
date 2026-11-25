@@ -3,6 +3,7 @@ name: Deskflow custom Windows and Linux builds
 on:
   push:
     branches:
+      - master
       - work/file-transfer
 
 permissions:
